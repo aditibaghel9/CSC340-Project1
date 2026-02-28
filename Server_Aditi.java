@@ -5,7 +5,7 @@ public class Server_Aditi{
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(5050)) {
             System.out.println("Server started on port 5050...");
-
+            //
             while (true) {
                 Socket socket = serverSocket.accept();
                 System.out.println("Client connected: " + socket.getRemoteSocketAddress());
