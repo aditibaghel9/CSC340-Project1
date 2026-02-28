@@ -1,61 +1,43 @@
-import java.net.Socket;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketImpl;
+import java.io.*;
+import java.net.*;
 
 public class Server_Aditi{
-    public static void main(String[] args, SocketImpl port) {
-        
-        Socket socket = null;
-        InputStreamReader inputStreamReader = null;
-        OutputStreamWriter outputStreamWriter = null;
-        BufferedReader bufferedReader = null;
-        BufferedWriter bufferedWriter = null;
-        ServerSocket serverSocket = null;
+    public static void main(String[] args) {
+        try (ServerSocket serverSocket = new ServerSocket(5050)) {
+            System.out.println("Server started on port 5050...");
 
-        serverSocket = new ServerSocket(port 5050);
+            while (true) {
+                Socket socket = serverSocket.accept();
+                System.out.println("Client connected: " + socket.getRemoteSocketAddress());
 
-        while (true) { 
-            
-            try {
-                socket = serverSocket.accept();
+                try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                     BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()))) {
 
-                inputStreamReader = new InputStreamReader(socket.getInputStream());
-                outputStreamWriter = new OutputStreamWriter(socket.getOutputStream());
+                    while (true) {
+                        String msgFromClient = bufferedReader.readLine();
 
-                bufferedReader = new BufferedReader(inputStreamReader);
-                bufferedWriter = new BufferedWriter(outputStreamWriter);
+                        if (msgFromClient == null) {
+                            System.out.println("Client disconnected.");
+                            break;
+                        }
 
-                while (true) { 
-                    
-                    String msgFromClient = bufferedReader.readLine();
+                        System.out.println("Client: " + msgFromClient);
 
-                    System.out.println("Client: " + msgFromClient);
+                        bufferedWriter.write("MSG Received");
+                        bufferedWriter.newLine();
+                        bufferedWriter.flush();
 
-                    bufferedWriter.write("MSG Received");
-                    bufferedWriter.newLine();
-                    bufferedWriter.flush();
-
-                    if (msgFromClient.equalsIgnoreCase("BYE")){
-                        break;
+                        if (msgFromClient.equalsIgnoreCase("BYE")) {
+                            System.out.println("Closing connection (BYE received).");
+                            break;
+                        }
                     }
-
+                } finally {
                     socket.close();
-                    inputStreamReader.close();
-                    outputStreamWriter.close();
-                    bufferedReader.close();
-                    bufferedWriter.close();
                 }
-
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
     }
-    }
+}
