@@ -2,7 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 
-public class Client_Aditi {
+public class Client_Aditi1 {
     public static void main(String[] args) {
         try (Socket socket = new Socket("192.168.65.2", 5050);
             //192.168.65.2
