@@ -2,7 +2,13 @@
 
 import java.net.*;
 import java.util.*;
-
+/**
+ * 
+ * @author claude.ai
+ *
+ *  
+ * 
+ */
 public class HeartbeatReceiver implements Runnable {
 
     private DatagramSocket socket;
