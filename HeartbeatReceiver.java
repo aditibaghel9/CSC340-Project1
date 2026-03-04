@@ -1,19 +1,13 @@
-
-
 import java.net.*;
 import java.util.*;
-/**
- * 
- * @author claude.ai
- *
- *  
- * 
- */
+
 public class HeartbeatReceiver implements Runnable {
 
     private DatagramSocket socket;
     private volatile boolean running = true;
-    private Map<String, Long> nodeLastSeen = new HashMap<>();
+    
+    // Changed from Map<String, Long> to Map<String, NodeInfo>
+    private Map<String, NodeInfo> nodes = new HashMap<>();
 
     public HeartbeatReceiver() {
         try {
@@ -30,26 +24,22 @@ public class HeartbeatReceiver implements Runnable {
 
         while (running) {
             try {
-                // Wait for incoming heartbeat packet
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                // Convert bytes to string
                 String message = new String(packet.getData(), 0, packet.getLength());
-                System.out.println("Received: " + message);
-
-                // Split the message by "|"
                 String[] parts = message.split("\\|");
 
-                // Make sure its a valid heartbeat message
                 if (parts.length == 4 && parts[0].equals("HEARTBEAT")) {
                     String nodeName = parts[1];
                     String serviceName = parts[2];
                     int tcpPort = Integer.parseInt(parts[3]);
+                    String nodeIP = packet.getAddress().getHostAddress();
 
-                    // Record the current time as last seen
-                    nodeLastSeen.put(nodeName, System.currentTimeMillis());
-                    System.out.println("Node alive: " + nodeName + " | Service: " + serviceName + " | Port: " + tcpPort);
+                    // Store full NodeInfo instead of just timestamp
+                    NodeInfo info = new NodeInfo(nodeName, serviceName, nodeIP, tcpPort);
+                    nodes.put(nodeName, info);
+                    System.out.println("Heartbeat received: " + info);
                 }
 
                 // Check for dead nodes every 30 seconds
@@ -66,20 +56,37 @@ public class HeartbeatReceiver implements Runnable {
 
     public void checkForDeadNodes() {
         long currentTime = System.currentTimeMillis();
-        Iterator<Map.Entry<String, Long>> iterator = nodeLastSeen.entrySet().iterator();
+        Iterator<Map.Entry<String, NodeInfo>> iterator = nodes.entrySet().iterator();
 
         while (iterator.hasNext()) {
-            Map.Entry<String, Long> entry = iterator.next();
-            String nodeName = entry.getKey();
-            long lastSeen = entry.getValue();
-
-            long secondsSinceLastSeen = (currentTime - lastSeen) / 1000;
+            Map.Entry<String, NodeInfo> entry = iterator.next();
+            NodeInfo info = entry.getValue();
+            long secondsSinceLastSeen = (currentTime - info.lastSeen) / 1000;
 
             if (secondsSinceLastSeen > 120) {
-                System.out.println("Node DEAD: " + nodeName + " (silent for " + secondsSinceLastSeen + " seconds)");
+                System.out.println("Node DEAD: " + info.nodeName + " (silent for " + secondsSinceLastSeen + " seconds)");
                 iterator.remove();
             }
         }
+    }
+
+    // Returns list of alive service names for LIST command
+    public List<String> getAliveServices() {
+        List<String> services = new ArrayList<>();
+        for (NodeInfo info : nodes.values()) {
+            services.add(info.serviceName);
+        }
+        return services;
+    }
+
+    // Returns NodeInfo for a specific service for TASK routing
+    public NodeInfo getNodeInfoByService(String serviceName) {
+        for (NodeInfo info : nodes.values()) {
+            if (info.serviceName.equalsIgnoreCase(serviceName)) {
+                return info;
+            }
+        }
+        return null;
     }
 
     public void stop() {
