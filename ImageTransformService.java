@@ -4,13 +4,8 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.Base64;
 import javax.imageio.ImageIO;
-
-
-//Image Transform Service
-//Provides: resize, rotate, grayscale operations on images
  
 public class ImageTransformService {
-    
     
      // Main processing method - routes to specific operations
    
@@ -24,7 +19,7 @@ public class ImageTransformService {
             
             String operation = parts[0].toUpperCase();
             
-            // Route to appropriate operation
+            // Routes to appropriate operation
             switch (operation) {
                 case "RESIZE":
                     if (parts.length < 4) {
@@ -51,7 +46,6 @@ public class ImageTransformService {
                     return grayscale(imageDataGray);
                     
                 case "THUMBNAIL":
-                    // Thumbnail is just a resize to 150x150
                     if (parts.length < 2) {
                         return "ERROR|THUMBNAIL requires: THUMBNAIL|imageData";
                     }
@@ -71,21 +65,21 @@ public class ImageTransformService {
     }
     
     
-     //Resize image to specified dimensions
+     //Resizes image to specified dimensions
      
     private String resize(String base64Image, int targetWidth, int targetHeight) {
         try {
-            // Decode base64 to image
+            // Decodes base64 to image
             BufferedImage original = decodeBase64ToImage(base64Image);
             
-            // Create new image with target dimensions
+            // Creates new image with target dimensions
             BufferedImage resized = new BufferedImage(
                 targetWidth, 
                 targetHeight, 
                 BufferedImage.TYPE_INT_RGB
             );
             
-            // Draw original image scaled to new dimensions
+            // Draws original image scaled to new dimensions
             Graphics2D g = resized.createGraphics();
             
             // Use high-quality rendering
@@ -99,7 +93,7 @@ public class ImageTransformService {
             g.drawImage(original, 0, 0, targetWidth, targetHeight, null);
             g.dispose();
             
-            // Encode result to base64
+            // Encodes result to base64
             String result = encodeImageToBase64(resized);
             
             return "SUCCESS|Resized to " + targetWidth + "x" + targetHeight + "|" + result;
@@ -110,24 +104,24 @@ public class ImageTransformService {
     }
     
     
-     //Rotate image by specified degrees
+     //Rotates image by specified degrees
      
     private String rotate(String base64Image, int degrees) {
         try {
-            // Decode base64 to image
+            // Decodes base64 to image
             BufferedImage original = decodeBase64ToImage(base64Image);
             
             int width = original.getWidth();
             int height = original.getHeight();
             
-            // Calculate new dimensions after rotation
+            // Calculates new dimensions after rotation
             double radians = Math.toRadians(degrees);
             double sin = Math.abs(Math.sin(radians));
             double cos = Math.abs(Math.cos(radians));
             int newWidth = (int) Math.floor(width * cos + height * sin);
             int newHeight = (int) Math.floor(height * cos + width * sin);
             
-            // Create rotated image
+            // Creates rotated image
             BufferedImage rotated = new BufferedImage(
                 newWidth, 
                 newHeight, 
@@ -136,7 +130,7 @@ public class ImageTransformService {
             
             Graphics2D g = rotated.createGraphics();
             
-            // Set white background
+            // Sets white background
             g.setColor(Color.WHITE);
             g.fillRect(0, 0, newWidth, newHeight);
             
@@ -146,7 +140,7 @@ public class ImageTransformService {
             g.setRenderingHint(RenderingHints.KEY_RENDERING, 
                               RenderingHints.VALUE_RENDER_QUALITY);
             
-            // Rotate around center
+            // Rotates around center
             AffineTransform transform = new AffineTransform();
             transform.translate(newWidth / 2.0, newHeight / 2.0);
             transform.rotate(radians);
@@ -155,7 +149,7 @@ public class ImageTransformService {
             g.drawImage(original, transform, null);
             g.dispose();
             
-            // Encode result to base64
+            // Encodes result to base64
             String result = encodeImageToBase64(rotated);
             
             return "SUCCESS|Rotated " + degrees + " degrees|" + result;
@@ -166,18 +160,18 @@ public class ImageTransformService {
     }
     
     
-    //Convert image to grayscale
+    //Converts image to grayscale
      
     private String grayscale(String base64Image) {
         try {
-            // Decode base64 to image
+            // Decodes base64 to image
             BufferedImage original = decodeBase64ToImage(base64Image);
             
-            // Create grayscale image
+            // Creates grayscale image
             BufferedImage gray = new BufferedImage(
                 original.getWidth(), 
                 original.getHeight(), 
-                BufferedImage.TYPE_BYTE_GRAY  // This type automatically converts to grayscale
+                BufferedImage.TYPE_BYTE_GRAY  
             );
             
             Graphics2D g = gray.createGraphics();
@@ -193,18 +187,15 @@ public class ImageTransformService {
             return "ERROR|Grayscale failed: " + e.getMessage();
         }
     }
-    
-    
-     //Helper: Decode base64 string to BufferedImage
      
     private BufferedImage decodeBase64ToImage(String base64Image) throws IOException {
-        // Remove any whitespace
+        // Removes any whitespace
         base64Image = base64Image.trim();
         
-        // Decode base64 to bytes
+        // Decodes base64 to bytes
         byte[] imageBytes = Base64.getDecoder().decode(base64Image);
         
-        // Convert bytes to BufferedImage
+        // Converts bytes to BufferedImage
         ByteArrayInputStream bis = new ByteArrayInputStream(imageBytes);
         BufferedImage image = ImageIO.read(bis);
         
@@ -214,32 +205,23 @@ public class ImageTransformService {
         
         return image;
     }
-    
-    
-     //Helper: Encode BufferedImage to base64 string
      
     private String encodeImageToBase64(BufferedImage image) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         
-        // Write image as JPEG (you can also use PNG)
+        // Writes image as JPEG (you can also use PNG)
         ImageIO.write(image, "jpg", baos);
         
-        // Convert to base64
+        // Converts to base64
         byte[] imageBytes = baos.toByteArray();
         return Base64.getEncoder().encodeToString(imageBytes);
     }
-    
-    
-     //Test method - demonstrates how to use the service
      
     public static void main(String[] args) {
         ImageTransformService service = new ImageTransformService();
         
         System.out.println("ImageTransformService Test");
         System.out.println("==========================\n");
-        
-        // Note: In real usage, you'd load an actual image file
-        // This is just to show the interface
         
         System.out.println("Usage examples:");
         System.out.println("1. Resize:     RESIZE|200|150|<base64ImageData>");
