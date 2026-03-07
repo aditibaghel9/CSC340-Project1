@@ -95,6 +95,24 @@ public class ClientHandler implements Runnable {
         
         String serviceName = parts[1].toUpperCase();
         String taskData = parts[2];
+
+        if (serviceName.equals("CSV")) {
+            StringBuilder csvBuilder = new StringBuilder();
+            
+            // If there's data on the first line, add it
+            if (!taskData.trim().isEmpty()) {
+                csvBuilder.append(taskData).append("\n");
+            }
+            
+            // Read additional lines until empty line
+            String line;
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                csvBuilder.append(line).append("\n");
+            }
+            
+            taskData = csvBuilder.toString().trim();
+            System.out.println("[Client] Received CSV data (" + taskData.split("\n").length + " lines)");
+        }
         
         System.out.println("[Client] Task request for service: " + serviceName);
         
