@@ -63,56 +63,35 @@ This project consists of microservices cluster, which is a distributed networkin
 
 ## System Architecture
 
-CLIENT LAYER
-                         +-------------------+
-                         |  TCPClient.java   |
-                         | (User Interface)  |
-                         +--------+----------+
-                                  |
-                                  | TCP Port 8000
-                                  v
-                    +-----------------------------+
-                    |      MAIN SERVER            |
-                    |      192.168.56.1           |
-                    |                             |
-                    |  +----------------------+   |
-                    |  |  ClientHandler       |   |
-                    |  |  (TCP Port 8000)     |   |
-                    |  |  - Routes requests   |   |
-                    |  |  - Multithreaded     |   |
-                    |  +----------------------+   |
-                    |                             |
-                    |  +----------------------+   |
-                    |  | HeartbeatReceiver    |   |
-                    |  | (UDP Port 9999)      |   |
-                    |  | - Monitors health    |   |
-                    |  | - 120s timeout       |   |
-                    |  +----------------------+   |
-                    +----+------------------+-----+
-                         |                  |
-                TCP Tasks|                  | UDP Heartbeats
-                (Forward)|                  | (Every 15-30s)
-                         |                  |
-        +----------------+------------------+----------------+
-        |                |                  |                |
-        v                v                  ^                v
-  +-----------+    +-----------+    +-----------+    +-----------+    +-----------+
-  |    VM1    |    |    VM2    |    |    VM3    |    |    VM4    |    |    VM5    |
-  |    CSV    |    |   IMAGE   |    |  BASE64   |    |   HMAC    |    |COMPRESSION|
-  |           |    |           |    |           |    |           |    |           |
-  | IP:       |    | IP:       |    | IP:       |    | IP:       |    | IP:       |
-  | .64.5     |    | .64.6     |    | .64.7     |    | .64.8     |    | .64.9     |
-  |           |    |           |    |           |    |           |    |           |
-  | Port:     |    | Port:     |    | Port:     |    | Port:     |    | Port:     |
-  | 8010      |    | 8020      |    | 8030      |    | 8040      |    | 8050      |
-  |           |    |           |    |           |    |           |    |           |
-  | Services: |    | Services: |    | Services: |    | Services: |    | Services: |
-  | • Mean    |    | • Resize  |    | • Encode  |    | • Sign    |    | • Compress|
-  | • Median  |    | • Rotate  |    | • Decode  |    | • Verify  |    | • Decomp. |
-  | • Std Dev |    | • Gray    |    |           |    |           |    |           |
-  | • Min     |    | • Thumb   |    |           |    |           |    |           |
-  | • Max     |    |           |    |           |    |           |    |           |
-  +-----------+    +-----------+    +-----------+    +-----------+    +-----------+
+  Layer 1: Client
+  TCPClient.java
+
+  Connects to Main Server on TCP port 8000
+  Requests list of available services
+  Submits tasks to specific services
+  Receives and displays results
+
+
+  Layer 2: Main Server (192.168.56.1)
+  The Main Server has two key components:
+  ComponentPortProtocolFunctionClientHandler8000TCPRoutes client requests to service nodesHeartbeatReceiver9999UDPMonitors service node health
+  ClientHandler:
+
+  Multithreaded (one thread per client)
+  Handles LIST, TASK, and BYE commands
+  Forwards tasks to appropriate service nodes
+  30-second timeout for service responses
+
+  HeartbeatReceiver:
+
+  Receives heartbeats from service nodes every 15-30 seconds
+  Removes nodes that haven't sent heartbeat in 120 seconds
+  Maintains registry of alive services
+
+
+  Layer 3: Service Nodes (VMs 1-5)
+  Each VM runs a service node that processes specific types of tasks:
+  VMServiceIPPortOperationsVM1CSV Statistics192.168.64.58010Mean, Median, Std Dev, Min, MaxVM2Image Transform192.168.64.68020Resize, Rotate, Grayscale, ThumbnailVM3Base64192.168.64.78030Encode, DecodeVM4HMAC192.168.64.88040Sign, Verify (SHA-256)VM5Compression192.168.64.98050GZIP Compress, Decompress
 
 ## Communication Flow
 1. Client connects to Main Server (TCP)
