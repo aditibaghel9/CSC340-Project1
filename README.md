@@ -63,40 +63,40 @@ This project consists of microservices cluster, which is a distributed networkin
 
 ## System Architecture
 
-                         CLIENT LAYER
-                    ┌─────────────────────┐
-                    │   TCPClient.java    │
-                    │  (User Interface)   │
-                    └──────────┬──────────┘
-                               │
-                               │ TCP Connection
-                               │ Port 8000
-                               ↓
-                    ┌──────────────────────────────┐
-                    │     MAIN SERVER         │
-                    │     192.168.56.1             │
-                    │                              │
-                    │  ┌────────────────────────┐  │
-                    │  │  ClientHandler         │  │
-                    │  │  (TCP Port 8000)       │  │
-                    │  │  - Routes requests     │  │
-                    │  │  - Multithreaded       │  │
-                    │  └────────────────────────┘  │
-                    │                              │
-                    │  ┌────────────────────────┐  │
-                    │  │  HeartbeatReceiver     │  │
-                    │  │  (UDP Port 9999)       │  │
-                    │  │  - Monitors health     │  │
-                    │  │  - 120s timeout        │  │
-                    │  └────────────────────────┘  │
-                    └──┬────────────────────────┬──┘
-                       │                        │
-              TCP Tasks│                        │UDP Heartbeats
-              (Forward)│                        │(Every 15-30s)
-                       │                        │
-       ┌───────────────┼────────────────────────┼───────────────┐
-       │               │                        │               │
-       ↓               ↓                        ↑               ↓
+CLIENT LAYER
+                ┌─────────────────────┐
+                │   TCPClient.java    │
+                │  (User Interface)   │
+                └──────────┬──────────┘
+                           │
+                           │ TCP Connection
+                           │ Port 8000
+                           ↓
+                ┌──────────────────────────────┐
+                │     MAIN SERVER (Mac)        │
+                │     192.168.56.1             │
+                │                              │
+                │  ┌────────────────────────┐  │
+                │  │  ClientHandler         │  │
+                │  │  (TCP Port 8000)       │  │
+                │  │  - Routes requests     │  │
+                │  │  - Multithreaded       │  │
+                │  └────────────────────────┘  │
+                │                              │
+                │  ┌────────────────────────┐  │
+                │  │  HeartbeatReceiver     │  │
+                │  │  (UDP Port 9999)       │  │
+                │  │  - Monitors health     │  │
+                │  │  - 120s timeout        │  │
+                │  └────────────────────────┘  │
+                └──┬────────────────────────┬──┘
+                   │                        │
+          TCP Tasks│                        │UDP Heartbeats
+          (Forward)│                        │(Every 15-30s)
+                   │                        │
+   ┌───────────────┼────────────────────────┼───────────────┐
+   │               │                        │               │
+   ↓               ↓                        ↑               ↓
 ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
 │   VM1       │ │   VM2       │ │   VM3       │ │   VM4       │ │   VM5       │
 │   CSV       │ │   IMAGE     │ │   BASE64    │ │   HMAC      │ │ COMPRESSION │
@@ -176,10 +176,10 @@ This project consists of microservices cluster, which is a distributed networkin
   ### Expected Output (each VM):
 
   ============================================================
-  SERVICE NODE: CSV
-  TCP Port: 8010
-  Server IP: 192.168.64.1
-  Node IP: 192.168.64.5
+    SERVICE NODE: CSV
+    TCP Port: 8010
+    Server IP: 192.168.64.1
+    Node IP: 192.168.64.5
   ============================================================
   ✓ Heartbeat sender started (sending to 192.168.64.1:9999)
   ✓ Listening for tasks on port 8010
