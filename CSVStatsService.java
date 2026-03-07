@@ -51,14 +51,19 @@ public class CSVStatsService {
      //Parses CSV text into columns of numbers
      
     private List<List<Double>> parseCSV(String csvData) {
+        System.out.println("DEBUG: parseCSV received: [" + csvData + "]");
+        System.out.println("DEBUG: Data length: " + csvData.length());
+
         List<List<Double>> columns = new ArrayList<>();
         String[] lines = csvData.split("\n");
+        System.out.println("DEBUG: Number of lines after split: " + lines.length);
         
         if (lines.length == 0) return columns;
         
         // Check if first line is a header
         int startLine = 0;
         String[] firstLine = lines[0].split(",");
+
         if (firstLine.length > 0 && !isNumeric(firstLine[0].trim())) {
             startLine = 1;
         }
