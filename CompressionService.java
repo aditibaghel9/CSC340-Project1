@@ -74,4 +74,11 @@ public class CompressionService implements Runnable {
             e.printStackTrace();
         }
     }
+    public static void main(String[] args) {
+        int port = Integer.parseInt(args[0]);
+        String serverIP = args[1];
+        new Thread(new CompressionService(port, serverIP)).start();
+        new Thread(new HeartbeatSender("node-COMPRESSION", "COMPRESSION", port, serverIP)).start();
+        System.out.println("Compression node started on port " + port);
+    }
 }
