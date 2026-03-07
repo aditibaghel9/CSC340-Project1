@@ -7,57 +7,57 @@ Class: CSC340
 ## Project Overview 
 This project consists of microservices cluster, which is a distributed networking system that enables clients to submit computational tasks to a dynamic pool of worker nodes without prior knowledge of their locations. 
 
-# Features
+## Features
 - the system mirrors real-world service-oriented and microservice architectures by separating a control plane and a data plane. 
 - consists of five service lists.
 
 ## Five Services (Service Nodes)
 
-# VM1: CSV Statistics Service
-IP: 192.168.64.5
-Port: 8010 (TCP)
-Implementation: CSVStatsService.java
-Operations:
-  - Calculate Mean 
-  - Calculate Median 
-  - Calculate Standard Deviation
-  - Find Minimum value
-  - Find Maximum value
+### VM1: CSV Statistics Service
+  IP: 192.168.64.5
+  Port: 8010 (TCP)
+  Implementation: CSVStatsService.java
+  Operations:
+    - Calculate Mean 
+    - Calculate Median 
+    - Calculate Standard Deviation
+    - Find Minimum value
+    - Find Maximum value
 
-# VM2: Image Transform Service
-IP: 192.168.64.6
-Port: 8020 (TCP)
-Implementation: ImageTransformService.java
-Tasks:
-  - Resize images to specific dimensions
-  - Rotate images by degrees (90°, 180°, 270°)
-  - Convert to grayscale
-  - Create thumbnails (150x150)
+### VM2: Image Transform Service
+  IP: 192.168.64.6
+  Port: 8020 (TCP)
+  Implementation: ImageTransformService.java
+  Tasks:
+    - Resize images to specific dimensions
+    - Rotate images by degrees (90°, 180°, 270°)
+    - Convert to grayscale
+    - Create thumbnails (150x150)
 
-# VM3: Base64 Service
-IP: 192.168.64.7
-Port: 8030 (TCP)
-Implementation: Inline in ServiceNode.java
-Tasks:
-  - Encode plain text to Base64
-  - Decode Base64 to plain text
+### VM3: Base64 Service
+  IP: 192.168.64.7
+  Port: 8030 (TCP)
+  Implementation: Inline in ServiceNode.java
+  Tasks:
+    - Encode plain text to Base64
+    - Decode Base64 to plain text
 
-# VM4: HMAC Service
-IP: 192.168.64.8
-Port: 8040 (TCP)
-Implementation: Inline in ServiceNode.java
-Tasks:
-  - Sign messages using HMAC-SHA256
-  - Verify message signatures
+### VM4: HMAC Service
+  IP: 192.168.64.8
+  Port: 8040 (TCP)
+  Implementation: Inline in ServiceNode.java
+  Tasks:
+    - Sign messages using HMAC-SHA256
+    - Verify message signatures
 
-# VM5: Compression Service
-IP: 192.168.64.9
-Port: 8050 (TCP)
-Implementation: Inline in ServiceNode.java
-Tasks:
-  - Compress text using GZIP
-  - Decompress GZIP data
-  - Base64 encode compressed data
+### VM5: Compression Service
+  IP: 192.168.64.9
+  Port: 8050 (TCP)
+  Implementation: Inline in ServiceNode.java
+  Tasks:
+    - Compress text using GZIP
+    - Decompress GZIP data
+    - Base64 encode compressed data
 
 
 
@@ -134,7 +134,7 @@ Tasks:
 
 ---
 
-## Step 1: Start Main Server 
+### Step 1: Start Main Server 
 
   ### Navigate to project directory
   cd ~/MicroservicesProject
@@ -150,7 +150,7 @@ Tasks:
   Heartbeat receiver started on UDP 9999
   Main Server started on TCP 8000
 
-## Step 2: Start Service Nodes (Each VM)
+### Step 2: Start Service Nodes (Each VM)
 
   ### VM1 - CSV Service:
   
@@ -189,7 +189,7 @@ Tasks:
 
   ---
 
-## Step 3: Run Client
+### Step 3: Run Client
 
   java TCPClient
 
@@ -221,7 +221,7 @@ Tasks:
 
 All messages use pipe delimiter (`|`) for field separation.
 
-## Client → Server Commands
+### Client → Server Commands
 
 | Command | Format | Description | Example |
 |---------|--------|-------------|---------|
@@ -229,7 +229,7 @@ All messages use pipe delimiter (`|`) for field separation.
 | TASK | `TASK\|<service>\|<data>` | Submit task to service | `TASK\|CSV\|Age,Height\n25,175` |
 | BYE | `BYE` | Close connection | `BYE` |
 
-## Server → Client Responses
+### Server → Client Responses
 
 | Response | Format | Description | Example |
 |----------|--------|-------------|---------|
@@ -237,7 +237,7 @@ All messages use pipe delimiter (`|`) for field separation.
 | SUCCESS | `SUCCESS\|<result>` | Task completed successfully | `SUCCESS\|Column 1: mean=27.50...` |
 | ERROR | `ERROR\|<code>\|<message>` | Error occurred | `ERROR\|404\|Service not available` |
 
-## Service Node → Server (UDP Heartbeat)
+### Service Node → Server (UDP Heartbeat)
 
 | Message | Format | Frequency |
 |---------|--------|-----------|
