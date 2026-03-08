@@ -155,10 +155,10 @@ This project consists of microservices cluster, which is a distributed networkin
   ### Expected Output (each VM):
 
   ========================================
-  SERVICE NODE: CSV
-  TCP Port: 8010
-  Server IP: 192.168.56.1
-  Node IP: 192.168.64.5
+    SERVICE NODE: CSV
+    TCP Port: 8010
+    Server IP: 192.168.56.1
+    Node IP: 192.168.64.5
   ============================================================
   ✓ Heartbeat sender started (sending to 192.168.56.1:9999)
   ✓ Listening for tasks on port 8010
