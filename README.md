@@ -3,7 +3,7 @@
 ## Team Info
 Team Members: Aditi Baghel and Kate Francis
 
-###Class: CSC340
+### Class: CSC340
 
 ## Project Overview 
 This project consists of microservices cluster, which is a distributed networking system that enables clients to submit computational tasks to a dynamic pool of worker nodes without prior knowledge of their locations. 
