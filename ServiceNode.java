@@ -307,7 +307,7 @@ public class ServiceNode {
     public static void main(String[] args) {
         if (args.length < 4) {
             System.out.println("Usage: java ServiceNode <serviceName> <tcpPort> <serverIP> <nodeIP>");
-            System.out.println("Example: java ServiceNode CSV 8010 192.168.64.1 192.168.64.5");
+            System.out.println("Example: java ServiceNode CSV 8010 192.168.56.1 192.168.64.5");
             System.out.println("\nAvailable services:");
             System.out.println("  CSV          - Calculate statistics on CSV data");
             System.out.println("  IMAGE        - Resize, rotate, grayscale images");

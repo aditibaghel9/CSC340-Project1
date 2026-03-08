@@ -4,7 +4,7 @@ import java.util.Scanner;
 
 public class TCPClient {
     public static void main(String[] args) {
-        String serverIP = "192.168.65.1";
+        String serverIP = "192.168.56.1";
         int serverPort = 8000;
         
         try (Socket socket = new Socket(serverIP, serverPort);

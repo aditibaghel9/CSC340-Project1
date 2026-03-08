@@ -2,7 +2,8 @@
 
 ## Team Info
 Team Members: Aditi Baghel and Kate Francis
-Class: CSC340
+
+###Class: CSC340
 
 ## Project Overview 
 This project consists of microservices cluster, which is a distributed networking system that enables clients to submit computational tasks to a dynamic pool of worker nodes without prior knowledge of their locations. 
@@ -132,34 +133,34 @@ This project consists of microservices cluster, which is a distributed networkin
 
   ### VM1 - CSV Service:
   
-  java ServiceNode CSV 8010 192.168.64.1 192.168.64.5
+  java ServiceNode CSV 8010 192.168.56.1 192.168.64.5
   
 
   ### VM2 - IMAGE Service:
   
-  java ServiceNode IMAGE 8020 192.168.64.1 192.168.64.6
+  java ServiceNode IMAGE 8020 192.168.56.1 192.168.64.6
 
   ### VM3 - BASE64 Service:
 
-  java ServiceNode BASE64 8030 192.168.64.1 192.168.64.7
+  java ServiceNode BASE64 8030 192.168.56.1 192.168.64.7
 
   ### VM4 - HMAC Service:
 
-  java ServiceNode HMAC 8040 192.168.64.1 192.168.64.8
+  java ServiceNode HMAC 8040 192.168.56.1 192.168.64.8
 
   ### VM5 - COMPRESSION Service:
 
-  java ServiceNode COMPRESSION 8050 192.168.64.1 192.168.64.9
+  java ServiceNode COMPRESSION 8050 192.168.56.1 192.168.64.9
 
   ### Expected Output (each VM):
 
   ============================================================
     SERVICE NODE: CSV
     TCP Port: 8010
-    Server IP: 192.168.64.1
+    Server IP: 192.168.56.1
     Node IP: 192.168.64.5
   ============================================================
-  ✓ Heartbeat sender started (sending to 192.168.64.1:9999)
+  ✓ Heartbeat sender started (sending to 192.168.56.1:9999)
   ✓ Listening for tasks on port 8010
   ✓ Service Node ready!
 
@@ -179,7 +180,7 @@ This project consists of microservices cluster, which is a distributed networkin
 
   Available services: SERVICES|5|CSV|IMAGE|BASE64|HMAC|COMPRESSION|
 
-  Enter service name (CSV, IMAGE, BASE64, etc.): CSV
+  Enter service name (CSV, IMAGE, BASE64, HMAC, COMPRESSION): CSV
 
   CSV STATS SERVICE
   Enter CSV data (empty line to finish):
