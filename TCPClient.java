@@ -26,7 +26,7 @@ public class TCPClient {
             System.out.println("Available services: " + serviceList);
             
             // Let user select service
-            System.out.print("\nEnter service name (CSV, IMAGE, BASE64, etc.): ");
+            System.out.print("\nEnter service name (CSV, IMAGE, BASE64, HMAC, COMPRESSION): ");
             String service = scanner.nextLine().toUpperCase();
             
             String taskRequest;
