@@ -62,15 +62,30 @@ public class ServiceNode {
              BufferedWriter out = new BufferedWriter(
                 new OutputStreamWriter(socket.getOutputStream()))) {
             
-            // Reads task data from main server
-            String taskData = in.readLine();
+            // FIXED: Read ALL lines of task data, not just the first line
+            StringBuilder taskDataBuilder = new StringBuilder();
+            String line = in.readLine();  // Read first line
             
-            if (taskData == null || taskData.isEmpty()) {
+            if (line == null || line.isEmpty()) {
                 out.write("ERROR|No task data received");
                 out.newLine();
                 out.flush();
                 return;
             }
+            
+            // Add first line
+            taskDataBuilder.append(line);
+            
+            // Keep reading while there's data available
+            // This handles multi-line CSV data
+            while (in.ready()) {
+                line = in.readLine();
+                if (line != null) {
+                    taskDataBuilder.append("\n").append(line);
+                }
+            }
+            
+            String taskData = taskDataBuilder.toString();
             
             // Prints abbreviated task data for logging
             String displayData = taskData.length() > 100 

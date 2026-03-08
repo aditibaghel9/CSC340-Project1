@@ -37,7 +37,7 @@ public class CSVStatsService {
                 result.append(String.format(", std=%.2f", std));
                 result.append(String.format(", min=%.2f", min));
                 result.append(String.format(", max=%.2f", max));
-                result.append("\n");
+                result.append(" | ");
             }
             
             return result.toString();
