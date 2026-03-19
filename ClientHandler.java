@@ -27,17 +27,17 @@ public class ClientHandler implements Runnable {
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 
-            System.out.println("[Client] Connected from: " + clientSocket.getRemoteSocketAddress());
+            System.out.println("[Client] New client connected.");
             
             while (true) {
                 String request = in.readLine();
                 
                 if (request == null) {
-                    System.out.println("[Client] Disconnected (null request)");
+                    System.out.println("[Client] Disconnected.");
                     break;
                 }
                 
-                System.out.println("[Client] Request: " + request);
+                System.out.println("[Client] Request: " + request.substring(0, Math.min(100, request.length())) + "...");
                 
                 if (request.equals("LIST")) {
                     handleListRequest(out);
@@ -50,7 +50,7 @@ public class ClientHandler implements Runnable {
                     System.out.println("[Client] Disconnected (BYE received)");
                     break;
                 } else {
-                    out.write("ERROR|400|Unknown command: " + request);
+                    out.write("ERROR|400|Unknown command");
                     out.newLine();
                     out.flush();
                 }
@@ -87,8 +87,7 @@ public class ClientHandler implements Runnable {
         String[] parts = request.split("\\|", 3);
         
         if (parts.length < 2) {
-            String error = "ERROR|400|Invalid task format. Use: TASK|SERVICE|DATA";
-            out.write(error);
+            out.write("ERROR|400|Invalid task format");
             out.newLine();
             out.flush();
             return;
@@ -99,11 +98,11 @@ public class ClientHandler implements Runnable {
         
         // Handle chunked CSV transfer
         if (serviceName.equals("CSV") && taskData.equals("CHUNKED")) {
-            System.out.println("[Client] Receiving chunked CSV - streaming directly to service node...");
+            System.out.println("[Client] Receiving chunked CSV - streaming to service node...");
 
             NodeInfo snInfo = heartbeatReceiver.getNodeInfoByService("CSV");
             if (snInfo == null) {
-                out.write("ERROR|404|CSV service not available");
+                out.write("ERROR|404|Service unavailable");
                 out.newLine();
                 out.flush();
                 // Drain remaining chunks from client
@@ -160,7 +159,7 @@ public class ClientHandler implements Runnable {
 
                 // Get result from service node
                 String result = snIn.readLine();
-                if (result == null) result = "ERROR|500|No result from service node";
+                if (result == null) result = "ERROR|500|Service unavailable";
 
                 out.write(result);
                 out.newLine();
@@ -170,8 +169,8 @@ public class ClientHandler implements Runnable {
                 return;
 
             } catch (IOException e) {
-                System.err.println("[Client] CSV streaming error: " + e.getMessage());
-                out.write("ERROR|500|CSV streaming failed: " + e.getMessage());
+                System.err.println("[Client] CSV streaming error.");
+                out.write("ERROR|500|Service temporarily unavailable.");
                 out.newLine();
                 out.flush();
                 return;
@@ -183,14 +182,13 @@ public class ClientHandler implements Runnable {
         NodeInfo snInfo = heartbeatReceiver.getNodeInfoByService(serviceName);
 
         if (snInfo == null) {
-            String error = "ERROR|404|Service " + serviceName + " is not currently available";
-            out.write(error);
+            out.write("ERROR|404|Service " + serviceName + " is not currently available");
             out.newLine();
             out.flush();
             return;
         }
 
-        System.out.println("[Client] Forwarding to: " + snInfo);
+        System.out.println("[Client] Forwarding to service node...");
         String result = forwardToServiceNode(snInfo, taskData);
 
         out.write(result);
@@ -209,7 +207,7 @@ public class ClientHandler implements Runnable {
             BufferedWriter snOut = new BufferedWriter(new OutputStreamWriter(snSocket.getOutputStream()));
             BufferedReader snIn = new BufferedReader(new InputStreamReader(snSocket.getInputStream()));
 
-            System.out.println("[Forward] Connecting to " + snInfo.ip + ":" + snInfo.port);
+            System.out.println("[Forward] Connecting to service node...");
             
             snOut.write(taskData);
             snOut.newLine();
@@ -220,7 +218,7 @@ public class ClientHandler implements Runnable {
             
             if (result == null) {
                 snSocket.close();
-                return "ERROR|500|Service node returned no result";
+                return "ERROR|500|Service unavailable";
             }
             
             System.out.println("[Forward] Result received from service node");
@@ -228,11 +226,9 @@ public class ClientHandler implements Runnable {
             return result;
             
         } catch (java.net.SocketTimeoutException e) {
-            System.err.println("[Forward] Timeout waiting for service node response");
-            return "ERROR|504|Service node timeout";
+            return "ERROR|504|Service timed out. Please try again.";
         } catch (IOException e) {
-            System.err.println("[Forward] Communication error: " + e.getMessage());
-            return "ERROR|500|Failed to communicate with service node: " + e.getMessage();
+            return "ERROR|500|Service temporarily unavailable.";
         }
     }
 }
