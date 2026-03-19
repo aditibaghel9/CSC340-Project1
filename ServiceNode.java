@@ -46,7 +46,7 @@ public class ServiceNode {
             while (true) {
                 Socket socket = serverSocket.accept();
                 System.out.println(">>> Main Server connected for task");
-                handleTask(socket);
+                new Thread(() -> handleTask(socket)).start();
             }
         } catch (IOException e) {
             System.err.println("ERROR: Failed to start TCP server on port " + tcpPort);
