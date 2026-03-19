@@ -25,6 +25,7 @@ public class CompressionService implements Runnable {
                 BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                 String operation = in.readLine();
                 String input = in.readLine();
+                input = input.replace("\\n", "\n");
                 String result = "";
                 if (operation == null || operation.isEmpty()) {
                     result = "ERROR: No operation provided";

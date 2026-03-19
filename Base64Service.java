@@ -23,6 +23,7 @@ public class Base64Service implements Runnable {
                 BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                 String operation = in.readLine();
                 String input = in.readLine();
+                input = input.replace("\\n", "\n");
                 String result = "";
                 if (input == null || input.isEmpty()) {
                     result = "ERROR: No input provided";

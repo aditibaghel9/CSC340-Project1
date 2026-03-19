@@ -26,6 +26,7 @@ public class HMACService implements Runnable {
                 BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                 String operation = in.readLine();
                 String message = in.readLine();
+                message = message.replace("\\n", "\n");
                 String secretKey = in.readLine();
                 String signature = in.readLine();
                 String result = "";

@@ -4,6 +4,9 @@ public class CSVStatsService {
     
     public String processCSV(String csvData) {
         try {
+
+            csvData = csvData.replace("\\n", "\n");
+            
             //Parses CSV into columns of numbers
             List<List<Double>> columns = parseCSV(csvData);
             
