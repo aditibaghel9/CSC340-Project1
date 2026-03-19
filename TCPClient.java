@@ -112,7 +112,7 @@ public class TCPClient {
             }
             socket.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Connection failed. Please check your connection and try again.");
         }
     }
     
@@ -256,7 +256,7 @@ public class TCPClient {
             }
         
             System.out.println("Sending CSV data in chunks...");
-            int chunkSize = 1000; // reduced chunk size for stability
+            int chunkSize = 1000;
             int lineCount = 0;
             int chunkCount = 0;
             StringBuilder chunk = new StringBuilder();
@@ -278,7 +278,6 @@ public class TCPClient {
                             System.out.println("Sent chunk " + chunkCount + " (" + lineCount + " lines so far)");
                         }
                     
-                        // Wait for acknowledgment with retry
                         String ack = in.readLine();
                         if (!"ACK".equals(ack)) {
                             System.err.println("Bad acknowledgment on chunk " + chunkCount + ": " + ack);
@@ -288,7 +287,6 @@ public class TCPClient {
                 }
             }
         
-            // Send remaining data
             if (chunk.length() > 0) {
                 out.write("CHUNK|" + chunk.toString());
                 out.newLine();
@@ -308,8 +306,7 @@ public class TCPClient {
             System.out.println("✓ Sent " + lineCount + " lines in " + chunkCount + " chunks");
         
         } catch (IOException e) {
-            System.err.println("Error sending chunked CSV: " + e.getMessage());
-            e.printStackTrace();
+             System.err.println("Transfer failed. Please try again.");
         }
     }
  
@@ -337,7 +334,7 @@ public class TCPClient {
         
         System.out.println("Input method:");
         System.out.println("1. Type text manually");
-        System.out.println("2. Load from .txt file");
+        System.out.println("2. Load from file (txt, bin, png, jpg, any file)");
         System.out.print("Choice (1 or 2): ");
         String choice = scanner.nextLine();
         
@@ -347,7 +344,12 @@ public class TCPClient {
             String filePath = scanner.nextLine();
             inputFileName = Paths.get(filePath).getFileName().toString();
             try {
-                text = new String(Files.readAllBytes(Paths.get(filePath))).replace("\n", "\\n").replace("\r", "");
+                if (selectedOperation.equals("ENCODE")) {
+                    byte[] fileBytes = Files.readAllBytes(Paths.get(filePath));
+                    text = "BINARY:" + Base64.getEncoder().encodeToString(fileBytes);
+                } else {
+                    text = new String(Files.readAllBytes(Paths.get(filePath))).replace("\n", "\\n").replace("\r", "");
+                }
             } catch (IOException e) {
                 System.err.println("Error reading file: " + e.getMessage());
                 return "TASK|BASE64|ERROR";
@@ -365,14 +367,28 @@ public class TCPClient {
         try {
             String content = result.startsWith("SUCCESS|") ? result.substring(8) : result;
             content = content.replace("\\n", "\n");
-            System.out.println(content);
             
-            String outputPath = selectedOperation.equals("ENCODE") 
-                ? "encoded_output.txt" 
-                : "decoded_output.txt";
-            
-            Files.write(Paths.get(outputPath), content.getBytes());
-            System.out.println("Result saved to: " + outputPath);
+            if (selectedOperation.equals("ENCODE")) {
+                String outputPath = inputFileName.equals("manual_input")
+                    ? "encoded_output.txt"
+                    : inputFileName + "_encoded.txt";
+                Files.write(Paths.get(outputPath), content.getBytes());
+                System.out.println("Encoded result saved to: " + outputPath);
+            } else {
+                try {
+                    byte[] decodedBytes = Base64.getDecoder().decode(content.trim());
+                    String outputPath = inputFileName.equals("manual_input")
+                        ? "decoded_output.bin"
+                        : "decoded_" + inputFileName;
+                    Files.write(Paths.get(outputPath), decodedBytes);
+                    System.out.println("Decoded result saved to: " + outputPath);
+                } catch (IllegalArgumentException e) {
+                    String outputPath = "decoded_output.txt";
+                    Files.write(Paths.get(outputPath), content.getBytes());
+                    System.out.println("Decoded result saved to: " + outputPath);
+                }
+            }
+            System.out.println(content.substring(0, Math.min(100, content.length())) + "...");
         } catch (IOException e) {
             System.err.println("Error saving result: " + e.getMessage());
         }
@@ -385,7 +401,7 @@ public class TCPClient {
         
         System.out.println("Input method:");
         System.out.println("1. Type message manually");
-        System.out.println("2. Load from .txt file");
+        System.out.println("2. Load from file (txt, bin, png, jpg, any file)");
         System.out.print("Choice (1 or 2): ");
         String choice = scanner.nextLine();
         
@@ -395,7 +411,8 @@ public class TCPClient {
             String filePath = scanner.nextLine();
             inputFileName = Paths.get(filePath).getFileName().toString();
             try {
-                message = new String(Files.readAllBytes(Paths.get(filePath))).replace("\n", "\\n").replace("\r", "");
+                byte[] fileBytes = Files.readAllBytes(Paths.get(filePath));
+                message = "BINARY:" + Base64.getEncoder().encodeToString(fileBytes);
             } catch (IOException e) {
                 System.err.println("Error reading file: " + e.getMessage());
                 return "TASK|HMAC|ERROR";

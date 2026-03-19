@@ -62,13 +62,11 @@ public class ServiceNode {
 
             String result;
 
-            // CSV uses streaming — don't read taskData first
             if (serviceName.equals("CSV")) {
                 System.out.println(">>> Processing CSV data (streaming)...");
                 result = "SUCCESS|" + csvService.processCSVFromSocket(in);
                 System.out.println(">>> CSV processing complete");
             } else {
-                // For all other services, read the task data normally
                 String taskData = in.readLine();
 
                 if (taskData == null || taskData.isEmpty()) {
@@ -131,11 +129,18 @@ public class ServiceNode {
             String data = parts.length > 1 ? parts[1] : "";
 
             if (operation.equalsIgnoreCase("ENCODE")) {
-                String encoded = java.util.Base64.getEncoder().encodeToString(data.getBytes());
-                return "SUCCESS|" + encoded;
+                if (data.startsWith("BINARY:")) {
+                    // Already Base64 encoded for transport, just strip prefix and return
+                    String encoded = data.substring(7);
+                    return "SUCCESS|" + encoded;
+                } else {
+                    String encoded = java.util.Base64.getEncoder().encodeToString(data.getBytes());
+                    return "SUCCESS|" + encoded;
+                }
             } else if (operation.equalsIgnoreCase("DECODE")) {
-                byte[] decoded = java.util.Base64.getDecoder().decode(data);
-                return "SUCCESS|" + new String(decoded);
+                data = data.replace("\\n", "\n");
+                byte[] decoded = java.util.Base64.getDecoder().decode(data.trim());
+                return "SUCCESS|" + java.util.Base64.getEncoder().encodeToString(decoded);
             } else {
                 return "ERROR|Unknown BASE64 operation: " + operation;
             }
@@ -156,12 +161,21 @@ public class ServiceNode {
             String message = parts[1];
             String secretKey = parts[2];
 
+            // Handle binary files sent as Base64
+            byte[] messageBytes;
+            if (message.startsWith("BINARY:")) {
+                messageBytes = java.util.Base64.getDecoder().decode(message.substring(7));
+            } else {
+                message = message.replace("\\n", "\n");
+                messageBytes = message.getBytes();
+            }
+
             if (operation.equalsIgnoreCase("SIGN")) {
                 javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
                 javax.crypto.spec.SecretKeySpec keySpec =
                     new javax.crypto.spec.SecretKeySpec(secretKey.getBytes(), "HmacSHA256");
                 mac.init(keySpec);
-                byte[] rawSignature = mac.doFinal(message.getBytes());
+                byte[] rawSignature = mac.doFinal(messageBytes);
                 StringBuilder hex = new StringBuilder();
                 for (byte b : rawSignature) {
                     hex.append(String.format("%02x", b));
@@ -177,7 +191,7 @@ public class ServiceNode {
                 javax.crypto.spec.SecretKeySpec keySpec =
                     new javax.crypto.spec.SecretKeySpec(secretKey.getBytes(), "HmacSHA256");
                 mac.init(keySpec);
-                byte[] rawSignature = mac.doFinal(message.getBytes());
+                byte[] rawSignature = mac.doFinal(messageBytes);
                 StringBuilder hex = new StringBuilder();
                 for (byte b : rawSignature) {
                     hex.append(String.format("%02x", b));
