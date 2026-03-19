@@ -256,7 +256,7 @@ public class TCPClient {
             }
         
             System.out.println("Sending CSV data in chunks...");
-            int chunkSize = 50; // reduced chunk size for stability
+            int chunkSize = 1000; // reduced chunk size for stability
             int lineCount = 0;
             int chunkCount = 0;
             StringBuilder chunk = new StringBuilder();
