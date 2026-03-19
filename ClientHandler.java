@@ -4,8 +4,7 @@ import java.util.*;
 
 /**
  * ClientHandler - Handles each client connection in a separate thread
- * Updated to use enhanced HeartbeatReceiver with full node information
- * FIXED: Now reads multi-line CSV data correctly
+ * @author aditibaghel9, KFrancis05, help from claude.ai
  */
 public class ClientHandler implements Runnable {
     private Socket clientSocket;
@@ -18,11 +17,16 @@ public class ClientHandler implements Runnable {
     
     @Override
     public void run() {
-        try (BufferedReader in = new BufferedReader(
-                new InputStreamReader(clientSocket.getInputStream()));
-             BufferedWriter out = new BufferedWriter(
-                new OutputStreamWriter(clientSocket.getOutputStream()))) {
-            
+        try {
+            clientSocket.setKeepAlive(true);
+            clientSocket.setSoTimeout(0);
+            clientSocket.setReceiveBufferSize(65536);
+            clientSocket.setSendBufferSize(65536);
+            clientSocket.setTcpNoDelay(true);
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+
             System.out.println("[Client] Connected from: " + clientSocket.getRemoteSocketAddress());
             
             while (true) {
@@ -35,7 +39,6 @@ public class ClientHandler implements Runnable {
                 
                 System.out.println("[Client] Request: " + request);
                 
-                // Handle different commands
                 if (request.equals("LIST")) {
                     handleListRequest(out);
                 } else if (request.startsWith("TASK|")) {
@@ -64,7 +67,6 @@ public class ClientHandler implements Runnable {
     }
     
     private void handleListRequest(BufferedWriter out) throws IOException {
-        // Get alive services from enhanced heartbeat receiver
         List<String> aliveServices = heartbeatReceiver.getAliveServices();
         
         StringBuilder sb = new StringBuilder("SERVICES|");
@@ -82,7 +84,6 @@ public class ClientHandler implements Runnable {
     }
     
     private void handleTaskRequest(String request, BufferedReader in, BufferedWriter out) throws IOException {
-        // Parse: TASK|SERVICE|<data>
         String[] parts = request.split("\\|", 3);
         
         if (parts.length < 2) {
@@ -90,14 +91,13 @@ public class ClientHandler implements Runnable {
             out.write(error);
             out.newLine();
             out.flush();
-            System.out.println("[Client] " + error);
             return;
         }
         
         String serviceName = parts[1].toUpperCase();
         String taskData = parts.length > 2 ? parts[2] : "";
         
-        //Handle Chunked CSV Transfer
+        // Handle chunked CSV transfer
         if (serviceName.equals("CSV") && taskData.equals("CHUNKED")) {
             System.out.println("[Client] Receiving chunked CSV - streaming directly to service node...");
 
@@ -106,7 +106,7 @@ public class ClientHandler implements Runnable {
                 out.write("ERROR|404|CSV service not available");
                 out.newLine();
                 out.flush();
-                // Still need to drain chunks from client
+                // Drain remaining chunks from client
                 String line;
                 while ((line = in.readLine()) != null && !line.equals("END_CHUNKS")) {
                     out.write("ACK");
@@ -116,19 +116,22 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
-            // Connect to service node
-            try (Socket snSocket = new Socket(snInfo.ip, snInfo.port);
-                BufferedWriter snOut = new BufferedWriter(
-                    new OutputStreamWriter(snSocket.getOutputStream()));
-                BufferedReader snIn = new BufferedReader(
-                    new InputStreamReader(snSocket.getInputStream()))) {
-                
-                snSocket.setSoTimeout(300000); // 5 minutes
-                
+            try {
+                Socket snSocket = new Socket(snInfo.ip, snInfo.port);
+                snSocket.setKeepAlive(true);
+                snSocket.setSoTimeout(0);
+                snSocket.setSendBufferSize(65536);
+                snSocket.setReceiveBufferSize(65536);
+                snSocket.setTcpNoDelay(true);
+
+                BufferedWriter snOut = new BufferedWriter(new OutputStreamWriter(snSocket.getOutputStream()));
+                BufferedReader snIn = new BufferedReader(new InputStreamReader(snSocket.getInputStream()));
+
                 // Signal ready to client
                 out.write("READY");
                 out.newLine();
                 out.flush();
+
                 // Stream chunks directly to service node
                 String line;
                 int chunkCount = 0;
@@ -136,7 +139,6 @@ public class ClientHandler implements Runnable {
                     if (line.equals("END_CHUNKS")) {
                         break;
                     } else if (line.startsWith("CHUNK|")) {
-                        // Forward chunk data directly to service node
                         snOut.write(line.substring(6));
                         snOut.newLine();
                         snOut.flush();
@@ -154,13 +156,22 @@ public class ClientHandler implements Runnable {
                 snOut.newLine();
                 snOut.flush();
 
-                System.out.println("[Client] Streamed " + chunkCount + " chunks to service node");
+                System.out.println("[Client] Streamed " + chunkCount + " chunks to service node, waiting for result...");
 
                 // Get result from service node
                 String result = snIn.readLine();
                 if (result == null) result = "ERROR|500|No result from service node";
-        
+
                 out.write(result);
+                out.newLine();
+                out.flush();
+
+                snSocket.close();
+                return;
+
+            } catch (IOException e) {
+                System.err.println("[Client] CSV streaming error: " + e.getMessage());
+                out.write("ERROR|500|CSV streaming failed: " + e.getMessage());
                 out.newLine();
                 out.flush();
                 return;
@@ -189,263 +200,39 @@ public class ClientHandler implements Runnable {
     }
     
     private String forwardToServiceNode(NodeInfo snInfo, String taskData) {
-        try (Socket snSocket = new Socket(snInfo.ip, snInfo.port);
-             BufferedWriter snOut = new BufferedWriter(
-                new OutputStreamWriter(snSocket.getOutputStream()));
-             BufferedReader snIn = new BufferedReader(
-                new InputStreamReader(snSocket.getInputStream()))) {
-            
+        try {
+            Socket snSocket = new Socket(snInfo.ip, snInfo.port);
+            snSocket.setKeepAlive(true);
+            snSocket.setSoTimeout(120000);
+            snSocket.setTcpNoDelay(true);
+
+            BufferedWriter snOut = new BufferedWriter(new OutputStreamWriter(snSocket.getOutputStream()));
+            BufferedReader snIn = new BufferedReader(new InputStreamReader(snSocket.getInputStream()));
+
             System.out.println("[Forward] Connecting to " + snInfo.ip + ":" + snInfo.port);
             
-            // Send task data to service node
             snOut.write(taskData);
             snOut.newLine();
             snOut.flush();
             System.out.println("[Forward] Task sent to service node");
             
-            // Set timeout for reading result (2 minutes)
-            snSocket.setSoTimeout(120000);
-            
-            // Read result from service node
             String result = snIn.readLine();
             
             if (result == null) {
+                snSocket.close();
                 return "ERROR|500|Service node returned no result";
             }
             
             System.out.println("[Forward] Result received from service node");
+            snSocket.close();
             return result;
             
         } catch (java.net.SocketTimeoutException e) {
             System.err.println("[Forward] Timeout waiting for service node response");
-            return "ERROR|504|Service node timeout (30 seconds)";
+            return "ERROR|504|Service node timeout";
         } catch (IOException e) {
             System.err.println("[Forward] Communication error: " + e.getMessage());
             return "ERROR|500|Failed to communicate with service node: " + e.getMessage();
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

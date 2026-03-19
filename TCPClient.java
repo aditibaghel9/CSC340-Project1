@@ -8,9 +8,8 @@ import java.util.Scanner;
  * 
  * @author aditibaghel9, KFrancis05, help from claude.ai
  */
-    public class TCPClient {
+public class TCPClient {
     
-    // Track input filename for output naming
     static String inputFileName = "";
     static String selectedOperation = "";
     
@@ -23,23 +22,28 @@ import java.util.Scanner;
         String serverIP = args[0];
         int serverPort = Integer.parseInt(args[1]);
         
-        try (Socket socket = new Socket(serverIP, serverPort);
-             BufferedReader in = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()));
-             BufferedWriter out = new BufferedWriter(
-                new OutputStreamWriter(socket.getOutputStream()));
-             Scanner scanner = new Scanner(System.in)) {
-            
+        try {
+            Socket socket = new Socket(serverIP, serverPort);
+            socket.setKeepAlive(true);
+            socket.setSoTimeout(0);
+            socket.setSendBufferSize(65536);
+            socket.setReceiveBufferSize(65536);
+            socket.setTcpNoDelay(true);
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            Scanner scanner = new Scanner(System.in);
+
             System.out.println("Connected to Microservices Cluster");
             System.out.println("=====================================\n");
             
             out.write("LIST");
             out.newLine();
             out.flush();
- 
+
             String serviceList = in.readLine();
             System.out.println("Available services: " + serviceList);
- 
+
             while (true) {
                 System.out.print("\nEnter service name (CSV, IMAGE, BASE64, HMAC, COMPRESSION) or QUIT to exit: ");
                 String service = scanner.nextLine().toUpperCase();
@@ -69,7 +73,6 @@ import java.util.Scanner;
                     continue;
                 }
     
-                // Check if this is a chunked CSV transfer
                 if (taskRequest.startsWith("TASK|CSV|CHUNKED|")) {
                     String filePath = taskRequest.substring("TASK|CSV|CHUNKED|".length());
                     sendChunkedCSV(filePath, in, out);
@@ -107,16 +110,12 @@ import java.util.Scanner;
                     }
                 }
             }
-            
+            socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
     
-    /**
-     * Handles IMAGE service requests
-     * Automatically looks in Downloads folder for images
-     */
     private static String handleImageService(Scanner scanner) {
         System.out.println("\nIMAGE TRANSFORM SERVICE");
         System.out.println("Operations: RESIZE, ROTATE, GRAYSCALE, THUMBNAIL");
@@ -126,31 +125,26 @@ import java.util.Scanner;
         System.out.print("Enter image filename (from Downloads folder): ");
         String imageInput = scanner.nextLine().trim();
         
-        // Build path - check if user provided full path or just filename
         String imagePath;
         String homeDir = System.getProperty("user.home");
         
         if (imageInput.startsWith("/") || imageInput.startsWith("~") || imageInput.contains(":\\")) {
-            // User provided full path (Mac/Linux: /Users/..., Windows: C:\...)
             imagePath = imageInput;
             if (imagePath.startsWith("~")) {
                 imagePath = imagePath.replace("~", homeDir);
             }
             inputFileName = Paths.get(imagePath).getFileName().toString();
         } else {
-            // Just filename - look in Downloads
             imagePath = homeDir + "/Downloads/" + imageInput;
             inputFileName = imageInput;
         }
         
         System.out.println("Looking for image at: " + imagePath);
         
-        // Check if file exists
         File imageFile = new File(imagePath);
         if (!imageFile.exists()) {
             System.err.println("ERROR: Image file not found!");
             System.err.println("Expected location: " + imagePath);
-            System.err.println("Please put your image in: " + homeDir + "/Downloads/");
             return "TASK|IMAGE|ERROR";
         }
         
@@ -185,7 +179,6 @@ import java.util.Scanner;
             return "TASK|IMAGE|" + taskData;
         } catch (IOException e) {
             System.err.println("Error loading image: " + e.getMessage());
-            e.printStackTrace();
             return "TASK|IMAGE|ERROR";
         }
     }
@@ -200,7 +193,6 @@ import java.util.Scanner;
             System.out.println("Status: " + parts[0]);
             System.out.println("Message: " + parts[1]);
             
-            // Build output filename based on input filename and operation
             String baseName = inputFileName.contains(".") 
                 ? inputFileName.substring(0, inputFileName.lastIndexOf('.')) 
                 : inputFileName;
@@ -216,10 +208,6 @@ import java.util.Scanner;
         }
     }
     
-    /**
-     * Handles CSV service requests with optimized file reading for large files
-     * Supports both manual entry and file input with streaming for memory efficiency
-     */
     private static String handleCSVService(Scanner scanner) {
         System.out.println("\nCSV STATS SERVICE");
         System.out.println("Input method:");
@@ -234,20 +222,15 @@ import java.util.Scanner;
             inputFileName = Paths.get(filePath).getFileName().toString();
         
             File file = new File(filePath);
-        if (!file.exists()) {
-            System.err.println("ERROR: File not found: " + filePath);
-            return "TASK|CSV|ERROR";
-        }
+            if (!file.exists()) {
+                System.err.println("ERROR: File not found: " + filePath);
+                return "TASK|CSV|ERROR";
+            }
         
-        long fileSizeBytes = file.length();
-        System.out.println("File size: " + (fileSizeBytes / 1024) + " KB");
-        
-        // Signal chunked transfer
-        return "TASK|CSV|CHUNKED|" + filePath;
-        
-        }
-
-        else {
+            long fileSizeBytes = file.length();
+            System.out.println("File size: " + (fileSizeBytes / 1024) + " KB");
+            return "TASK|CSV|CHUNKED|" + filePath;
+        } else {
             inputFileName = "manual_input";
             System.out.println("Enter CSV data (empty line to finish):");
             StringBuilder sb = new StringBuilder();
@@ -262,20 +245,18 @@ import java.util.Scanner;
 
     private static void sendChunkedCSV(String filePath, BufferedReader in, BufferedWriter out) {
         try {
-            // Send chunked signal to server
             out.write("TASK|CSV|CHUNKED");
             out.newLine();
             out.flush();
         
-            // Wait for server ready signal
             String ready = in.readLine();
             if (!"READY".equals(ready)) {
-                System.err.println("Server not ready for chunks");
+                System.err.println("Server not ready for chunks: " + ready);
                 return;
             }
         
             System.out.println("Sending CSV data in chunks...");
-            int chunkSize = 500; // lines per chunk
+            int chunkSize = 50; // reduced chunk size for stability
             int lineCount = 0;
             int chunkCount = 0;
             StringBuilder chunk = new StringBuilder();
@@ -287,18 +268,20 @@ import java.util.Scanner;
                     lineCount++;
                 
                     if (lineCount % chunkSize == 0) {
-                        // Send chunk
                         out.write("CHUNK|" + chunk.toString());
                         out.newLine();
                         out.flush();
                         chunk = new StringBuilder();
                         chunkCount++;
-                        System.out.println("Sent chunk " + chunkCount + " (" + lineCount + " lines so far)");
+
+                        if (chunkCount % 1000 == 0) {
+                            System.out.println("Sent chunk " + chunkCount + " (" + lineCount + " lines so far)");
+                        }
                     
-                        // Wait for acknowledgment
+                        // Wait for acknowledgment with retry
                         String ack = in.readLine();
                         if (!"ACK".equals(ack)) {
-                            System.err.println("Bad acknowledgment from server");
+                            System.err.println("Bad acknowledgment on chunk " + chunkCount + ": " + ack);
                             return;
                         }
                     }
@@ -313,12 +296,11 @@ import java.util.Scanner;
                 chunkCount++;
                 String ack = in.readLine();
                 if (!"ACK".equals(ack)) {
-                    System.err.println("Bad acknowledgment from server");
+                    System.err.println("Bad acknowledgment on final chunk: " + ack);
                     return;
                 }
             }
         
-            // Signal end of chunks
             out.write("END_CHUNKS");
             out.newLine();
             out.flush();
@@ -327,6 +309,7 @@ import java.util.Scanner;
         
         } catch (IOException e) {
             System.err.println("Error sending chunked CSV: " + e.getMessage());
+            e.printStackTrace();
         }
     }
  
@@ -492,7 +475,6 @@ import java.util.Scanner;
             System.out.println("Operation completed successfully");
             
             if (selectedOperation.equals("COMPRESS")) {
-                // Decode Base64 result back to bytes and save as .gz
                 byte[] compressedBytes = Base64.getDecoder().decode(content);
                 String outputPath = inputFileName.equals("manual_input") 
                     ? "compressed_output.gz" 
@@ -501,12 +483,10 @@ import java.util.Scanner;
                 System.out.println("Compressed file saved to: " + outputPath);
                 
             } else {
-                // Save decompressed text
                 String outputPath;
                 if (inputFileName.equals("manual_input")) {
                     outputPath = "decompressed_output.txt";
                 } else {
-                    // Strip .gz extension to get original filename
                     outputPath = inputFileName.endsWith(".gz") 
                         ? inputFileName.substring(0, inputFileName.length() - 3) 
                         : inputFileName + "_decompressed.txt";
