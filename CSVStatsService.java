@@ -1,10 +1,13 @@
 import java.util.*;
 
 public class CSVStatsService {
+
+    private static final boolean DEBUG = false;
     
     public String processCSV(String csvData) {
         try {
 
+            long startTime = System.currentTimeMillis();
             csvData = csvData.replace("\\n", "\n");
             
             //Parses CSV into columns of numbers
@@ -42,6 +45,11 @@ public class CSVStatsService {
                 result.append(String.format(", max=%.2f", max));
                 result.append(" | ");
             }
+
+            long endTime = System.currentTimeMillis();
+            if (DEBUG){
+                System.out.println("CSV processing took " + (endTime - startTime) + "ms");
+            }
             
             return result.toString();
             
@@ -54,12 +62,19 @@ public class CSVStatsService {
      //Parses CSV text into columns of numbers
      
     private List<List<Double>> parseCSV(String csvData) {
+
+        if(DEBUG){
         System.out.println("DEBUG: parseCSV received: [" + csvData + "]");
         System.out.println("DEBUG: Data length: " + csvData.length());
+        }
 
         List<List<Double>> columns = new ArrayList<>();
         String[] lines = csvData.split("\n");
         System.out.println("DEBUG: Number of lines after split: " + lines.length);
+        
+        if (DEBUG){
+            System.out.println("Processing " + lines.length + " lines");
+        }
         
         if (lines.length == 0) return columns;
         
@@ -69,7 +84,12 @@ public class CSVStatsService {
 
         if (firstLine.length > 0 && !isNumeric(firstLine[0].trim())) {
             startLine = 1;
+            if (DEBUG){
+                System.out.println("Header detected, skipping first line");
+            }
         }
+
+        int dataRowCount = 0;
         
         // Process each data line
         for (int i = startLine; i < lines.length; i++) {
@@ -77,6 +97,11 @@ public class CSVStatsService {
             if (line.isEmpty()) continue;
             
             String[] values = line.split(",");
+
+            while (columns.size() < values.length){
+                columns.add(new ArrayList<>());
+            }
+
             for (int j = 0; j < values.length; j++) {
                 while (columns.size() <= j) {
                     columns.add(new ArrayList<>());
@@ -89,6 +114,15 @@ public class CSVStatsService {
                     // Skips non-numeric
                 }
             }
+            dataRowCount++;
+
+            if(DEBUG && dataRowCount % 10000 == 0){
+                System.out.println("Processed " + dataRowCount + " rows..");
+            }
+        }
+
+        if (DEBUG){
+            System.out.println("Parsed " + dataRowCount + " data rows into " + columns.size() + " columns");
         }
         
         return columns;
@@ -100,6 +134,7 @@ public class CSVStatsService {
     private double calculateMean(List<Double> values) {
         if (values.isEmpty()) return 0.0;
         return values.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+    
     }
     
     
@@ -141,13 +176,13 @@ public class CSVStatsService {
     
         private boolean isNumeric(String str) {
             if (str == null || str.isEmpty()) return false;
-        try {
-            Double.parseDouble(str);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
+            try {
+                Double.parseDouble(str);
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
         }
-    }
     
     
      //Testing Method
@@ -159,9 +194,25 @@ public class CSVStatsService {
         System.out.println("CSV STATISTICS SERVICE - TEST");
         System.out.println("=".repeat(60));
         
+        // Test 1: Basic dataset
         String test1 = "Age,Height,Weight\n25,175,70\n30,180,75\n35,170,68\n40,185,80";
         System.out.println("\nTest 1: CSV with header");
         System.out.println("Input:\n" + test1);
         System.out.println("\nOutput:\n" + service.processCSV(test1));
+
+        // Test 2: Larger dataset
+        System.out.println("\n" + "=".repeat(60));
+        System.out.println("Test 2: Large CSV (1000 rows)");
+        StringBuilder largeCSV = new StringBuilder("ID,Value1,Value2,Value3\n");
+        for (int i = 1; i <= 1000; i++) {
+            largeCSV.append(i).append(",").append(Math.random() * 100).append(",").append(Math.random() * 50).append(",").append(Math.random() * 200).append("\n");
+        }
+        
+        long startTime = System.currentTimeMillis();
+        String result = service.processCSV(largeCSV.toString());
+        long endTime = System.currentTimeMillis();
+        
+        System.out.println("Processed 1000 rows in " + (endTime - startTime) + "ms");
+        System.out.println("Output:\n" + result);
     }
-}
+    }

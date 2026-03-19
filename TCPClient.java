@@ -4,11 +4,11 @@ import java.nio.file.*;
 import java.util.Base64;
 import java.util.Scanner;
 /**
- * 
- * @author aditibaghel9, KFrancis05, help from claude.ai
- *
- */
-public class TCPClient {
+ * TCP Client for Microservices Cluster
+ * 
+ * @author aditibaghel9, KFrancis05, help from claude.ai
+ */
+    public class TCPClient {
     
     // Track input filename for output naming
     static String inputFileName = "";
@@ -36,10 +36,10 @@ public class TCPClient {
             out.write("LIST");
             out.newLine();
             out.flush();
-
+ 
             String serviceList = in.readLine();
             System.out.println("Available services: " + serviceList);
-
+ 
             while (true) {
                 System.out.print("\nEnter service name (CSV, IMAGE, BASE64, HMAC, COMPRESSION) or QUIT to exit: ");
                 String service = scanner.nextLine().toUpperCase();
@@ -98,19 +98,50 @@ public class TCPClient {
         }
     }
     
+    /**
+     * Handles IMAGE service requests
+     * Automatically looks in Downloads folder for images
+     */
     private static String handleImageService(Scanner scanner) {
         System.out.println("\nIMAGE TRANSFORM SERVICE");
         System.out.println("Operations: RESIZE, ROTATE, GRAYSCALE, THUMBNAIL");
         System.out.print("Enter operation: ");
         selectedOperation = scanner.nextLine().toUpperCase();
         
-        System.out.print("Enter image file path: ");
-        String imagePath = scanner.nextLine();
-        inputFileName = Paths.get(imagePath).getFileName().toString();
+        System.out.print("Enter image filename (from Downloads folder): ");
+        String imageInput = scanner.nextLine().trim();
+        
+        // Build path - check if user provided full path or just filename
+        String imagePath;
+        String homeDir = System.getProperty("user.home");
+        
+        if (imageInput.startsWith("/") || imageInput.startsWith("~") || imageInput.contains(":\\")) {
+            // User provided full path (Mac/Linux: /Users/..., Windows: C:\...)
+            imagePath = imageInput;
+            if (imagePath.startsWith("~")) {
+                imagePath = imagePath.replace("~", homeDir);
+            }
+            inputFileName = Paths.get(imagePath).getFileName().toString();
+        } else {
+            // Just filename - look in Downloads
+            imagePath = homeDir + "/Downloads/" + imageInput;
+            inputFileName = imageInput;
+        }
+        
+        System.out.println("Looking for image at: " + imagePath);
+        
+        // Check if file exists
+        File imageFile = new File(imagePath);
+        if (!imageFile.exists()) {
+            System.err.println("ERROR: Image file not found!");
+            System.err.println("Expected location: " + imagePath);
+            System.err.println("Please put your image in: " + homeDir + "/Downloads/");
+            return "TASK|IMAGE|ERROR";
+        }
         
         try {
             String base64Image = ImageHelper.imageFileToBase64(imagePath);
-            System.out.println("Image loaded (" + base64Image.length() + " chars)");
+            System.out.println("✓ Image loaded successfully (" + base64Image.length() + " chars)");
             
             String taskData;
             switch (selectedOperation) {
@@ -139,6 +170,7 @@ public class TCPClient {
             return "TASK|IMAGE|" + taskData;
         } catch (IOException e) {
             System.err.println("Error loading image: " + e.getMessage());
+            e.printStackTrace();
             return "TASK|IMAGE|ERROR";
         }
     }
@@ -169,6 +201,10 @@ public class TCPClient {
         }
     }
     
+    /**
+     * Handles CSV service requests with optimized file reading for large files
+     * Supports both manual entry and file input with streaming for memory efficiency
+     */
     private static String handleCSVService(Scanner scanner) {
         System.out.println("\nCSV STATS SERVICE");
         System.out.println("Input method:");
@@ -182,13 +218,81 @@ public class TCPClient {
             System.out.print("Enter CSV file path: ");
             String filePath = scanner.nextLine();
             inputFileName = Paths.get(filePath).getFileName().toString();
+            
             try {
-                csvData = new String(Files.readAllBytes(Paths.get(filePath))).replace("\n", "\\n").replace("\r", "");
+                File file = new File(filePath);
+                
+                // Check if file exists
+                if (!file.exists()) {
+                    System.err.println("ERROR: File not found: " + filePath);
+                    return "TASK|CSV|ERROR";
+                }
+                
+                // Display file size information
+                long fileSizeBytes = file.length();
+                long fileSizeMB = fileSizeBytes / (1024 * 1024);
+                long fileSizeKB = fileSizeBytes / 1024;
+                
+                if (fileSizeMB > 0) {
+                    System.out.println("File size: " + fileSizeMB + " MB (" + fileSizeBytes + " bytes)");
+                } else {
+                    System.out.println("File size: " + fileSizeKB + " KB (" + fileSizeBytes + " bytes)");
+                }
+                
+                // Set maximum file size limit (100 MB)
+                final int MAX_FILE_SIZE_MB = 100;
+                if (fileSizeMB > MAX_FILE_SIZE_MB) {
+                    System.err.println("ERROR: File too large!");
+                    System.err.println("Maximum file size: " + MAX_FILE_SIZE_MB + " MB");
+                    System.err.println("Your file size: " + fileSizeMB + " MB");
+                    System.err.println("Please use a smaller file or split it into multiple files.");
+                    return "TASK|CSV|ERROR";
+                }
+                
+                // Warn for large files
+                if (fileSizeMB > 10) {
+                    System.out.println("⚠️  Large file detected. This may take some time...");
+                }
+                
+                // Stream file line-by-line for memory efficiency
+                System.out.println("Reading file...");
+                long startTime = System.currentTimeMillis();
+                
+                StringBuilder csvBuilder = new StringBuilder();
+                int lineCount = 0;
+                
+                try (BufferedReader reader = Files.newBufferedReader(Paths.get(filePath))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        csvBuilder.append(line).append("\\n");
+                        lineCount++;
+                        
+                        // Progress indicator for large files (every 50,000 lines)
+                        if (lineCount % 50000 == 0) {
+                            System.out.println("  Processed " + lineCount + " lines...");
+                        }
+                    }
+                }
+                
+                csvData = csvBuilder.toString();
+                
+                long endTime = System.currentTimeMillis();
+                long timeMs = endTime - startTime;
+                
+                System.out.println("✓ Loaded " + lineCount + " lines in " + timeMs + "ms");
+                
+                if (timeMs > 0) {
+                    long linesPerSec = (lineCount * 1000) / timeMs;
+                    System.out.println("✓ Processing rate: " + linesPerSec + " lines/sec");
+                }
+                
             } catch (IOException e) {
                 System.err.println("Error reading file: " + e.getMessage());
+                e.printStackTrace();
                 return "TASK|CSV|ERROR";
             }
         } else {
+            // Manual entry mode
             inputFileName = "manual_input";
             System.out.println("Enter CSV data (empty line to finish):");
             StringBuilder sb = new StringBuilder();
@@ -199,9 +303,10 @@ public class TCPClient {
             }
             csvData = sb.toString();
         }
+        
         return "TASK|CSV|" + csvData;
     }
-
+ 
     private static void handleCSVResult(String result) {
         try {
             String content = result.startsWith("SUCCESS|") ? result.substring(8) : result;
