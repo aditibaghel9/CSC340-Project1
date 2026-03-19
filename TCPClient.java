@@ -69,27 +69,42 @@ import java.util.Scanner;
                     continue;
                 }
     
-                out.write(taskRequest);
-                out.newLine();
-                out.flush();
-    
-                String result = in.readLine();
-                System.out.println("\n" + "=".repeat(60));
-                System.out.println("RESULT:");
-                System.out.println("=".repeat(60));
-    
-                if (service.equals("IMAGE") && result != null && result.startsWith("SUCCESS")) {
-                    handleImageResult(result);
-                } else if (service.equals("BASE64") && result != null && result.startsWith("SUCCESS")) {
-                    handleBase64Result(result);
-                } else if (service.equals("HMAC") && result != null && result.startsWith("SUCCESS")) {
-                    handleHMACResult(result);
-                } else if (service.equals("COMPRESSION") && result != null && result.startsWith("SUCCESS")) {
-                    handleCompressionResult(result);
-                } else if (service.equals("CSV") && result != null && result.startsWith("SUCCESS")) {
-                    handleCSVResult(result);
+                // Check if this is a chunked CSV transfer
+                if (taskRequest.startsWith("TASK|CSV|CHUNKED|")) {
+                    String filePath = taskRequest.substring("TASK|CSV|CHUNKED|".length());
+                    sendChunkedCSV(filePath, in, out);
+                    String result = in.readLine();
+                    System.out.println("\n" + "=".repeat(60));
+                    System.out.println("RESULT:");
+                    System.out.println("=".repeat(60));
+                    if (result != null && result.startsWith("SUCCESS")) {
+                        handleCSVResult(result);
+                    } else {
+                        System.out.println(result);
+                    }
                 } else {
-                    System.out.println(result);
+                    out.write(taskRequest);
+                    out.newLine();
+                    out.flush();
+    
+                    String result = in.readLine();
+                    System.out.println("\n" + "=".repeat(60));
+                    System.out.println("RESULT:");
+                    System.out.println("=".repeat(60));
+    
+                    if (service.equals("IMAGE") && result != null && result.startsWith("SUCCESS")) {
+                        handleImageResult(result);
+                    } else if (service.equals("BASE64") && result != null && result.startsWith("SUCCESS")) {
+                        handleBase64Result(result);
+                    } else if (service.equals("HMAC") && result != null && result.startsWith("SUCCESS")) {
+                        handleHMACResult(result);
+                    } else if (service.equals("COMPRESSION") && result != null && result.startsWith("SUCCESS")) {
+                        handleCompressionResult(result);
+                    } else if (service.equals("CSV") && result != null && result.startsWith("SUCCESS")) {
+                        handleCSVResult(result);
+                    } else {
+                        System.out.println(result);
+                    }
                 }
             }
             
@@ -212,99 +227,107 @@ import java.util.Scanner;
         System.out.println("2. Load from .csv file");
         System.out.print("Choice (1 or 2): ");
         String choice = scanner.nextLine();
-        
-        String csvData;
+    
         if (choice.equals("2")) {
             System.out.print("Enter CSV file path: ");
             String filePath = scanner.nextLine();
             inputFileName = Paths.get(filePath).getFileName().toString();
-            
-            try {
-                File file = new File(filePath);
-                
-                // Check if file exists
-                if (!file.exists()) {
-                    System.err.println("ERROR: File not found: " + filePath);
-                    return "TASK|CSV|ERROR";
-                }
-                
-                // Display file size information
-                long fileSizeBytes = file.length();
-                long fileSizeMB = fileSizeBytes / (1024 * 1024);
-                long fileSizeKB = fileSizeBytes / 1024;
-                
-                if (fileSizeMB > 0) {
-                    System.out.println("File size: " + fileSizeMB + " MB (" + fileSizeBytes + " bytes)");
-                } else {
-                    System.out.println("File size: " + fileSizeKB + " KB (" + fileSizeBytes + " bytes)");
-                }
-                
-                // Set maximum file size limit (100 MB)
-                final int MAX_FILE_SIZE_MB = 100;
-                if (fileSizeMB > MAX_FILE_SIZE_MB) {
-                    System.err.println("ERROR: File too large!");
-                    System.err.println("Maximum file size: " + MAX_FILE_SIZE_MB + " MB");
-                    System.err.println("Your file size: " + fileSizeMB + " MB");
-                    System.err.println("Please use a smaller file or split it into multiple files.");
-                    return "TASK|CSV|ERROR";
-                }
-                
-                // Warn for large files
-                if (fileSizeMB > 10) {
-                    System.out.println("⚠️  Large file detected. This may take some time...");
-                }
-                
-                // Stream file line-by-line for memory efficiency
-                System.out.println("Reading file...");
-                long startTime = System.currentTimeMillis();
-                
-                StringBuilder csvBuilder = new StringBuilder();
-                int lineCount = 0;
-                
-                try (BufferedReader reader = Files.newBufferedReader(Paths.get(filePath))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        csvBuilder.append(line).append("\\n");
-                        lineCount++;
-                        
-                        // Progress indicator for large files (every 50,000 lines)
-                        if (lineCount % 50000 == 0) {
-                            System.out.println("  Processed " + lineCount + " lines...");
-                        }
-                    }
-                }
-                
-                csvData = csvBuilder.toString();
-                
-                long endTime = System.currentTimeMillis();
-                long timeMs = endTime - startTime;
-                
-                System.out.println("✓ Loaded " + lineCount + " lines in " + timeMs + "ms");
-                
-                if (timeMs > 0) {
-                    long linesPerSec = (lineCount * 1000) / timeMs;
-                    System.out.println("✓ Processing rate: " + linesPerSec + " lines/sec");
-                }
-                
-            } catch (IOException e) {
-                System.err.println("Error reading file: " + e.getMessage());
-                e.printStackTrace();
-                return "TASK|CSV|ERROR";
-            }
-        } else {
-            // Manual entry mode
+        
+            File file = new File(filePath);
+        if (!file.exists()) {
+            System.err.println("ERROR: File not found: " + filePath);
+            return "TASK|CSV|ERROR";
+        }
+        
+        long fileSizeBytes = file.length();
+        System.out.println("File size: " + (fileSizeBytes / 1024) + " KB");
+        
+        // Signal chunked transfer
+        return "TASK|CSV|CHUNKED|" + filePath;
+        
+        }
+
+        else {
             inputFileName = "manual_input";
             System.out.println("Enter CSV data (empty line to finish):");
             StringBuilder sb = new StringBuilder();
             while (true) {
                 String line = scanner.nextLine();
                 if (line.isEmpty()) break;
-                sb.append(line).append("\n");
+                sb.append(line).append("\\n");
             }
-            csvData = sb.toString();
+            return "TASK|CSV|" + sb.toString();
         }
+    }
+
+    private static void sendChunkedCSV(String filePath, BufferedReader in, BufferedWriter out) {
+        try {
+            // Send chunked signal to server
+            out.write("TASK|CSV|CHUNKED");
+            out.newLine();
+            out.flush();
         
-        return "TASK|CSV|" + csvData;
+            // Wait for server ready signal
+            String ready = in.readLine();
+            if (!"READY".equals(ready)) {
+                System.err.println("Server not ready for chunks");
+                return;
+            }
+        
+            System.out.println("Sending CSV data in chunks...");
+            int chunkSize = 500; // lines per chunk
+            int lineCount = 0;
+            int chunkCount = 0;
+            StringBuilder chunk = new StringBuilder();
+        
+            try (BufferedReader reader = Files.newBufferedReader(Paths.get(filePath))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    chunk.append(line).append("\\n");
+                    lineCount++;
+                
+                    if (lineCount % chunkSize == 0) {
+                        // Send chunk
+                        out.write("CHUNK|" + chunk.toString());
+                        out.newLine();
+                        out.flush();
+                        chunk = new StringBuilder();
+                        chunkCount++;
+                        System.out.println("Sent chunk " + chunkCount + " (" + lineCount + " lines so far)");
+                    
+                        // Wait for acknowledgment
+                        String ack = in.readLine();
+                        if (!"ACK".equals(ack)) {
+                            System.err.println("Bad acknowledgment from server");
+                            return;
+                        }
+                    }
+                }
+            }
+        
+            // Send remaining data
+            if (chunk.length() > 0) {
+                out.write("CHUNK|" + chunk.toString());
+                out.newLine();
+                out.flush();
+                chunkCount++;
+                String ack = in.readLine();
+                if (!"ACK".equals(ack)) {
+                    System.err.println("Bad acknowledgment from server");
+                    return;
+                }
+            }
+        
+            // Signal end of chunks
+            out.write("END_CHUNKS");
+            out.newLine();
+            out.flush();
+        
+            System.out.println("✓ Sent " + lineCount + " lines in " + chunkCount + " chunks");
+        
+        } catch (IOException e) {
+            System.err.println("Error sending chunked CSV: " + e.getMessage());
+        }
     }
  
     private static void handleCSVResult(String result) {

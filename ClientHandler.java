@@ -85,7 +85,7 @@ public class ClientHandler implements Runnable {
         // Parse: TASK|SERVICE|<data>
         String[] parts = request.split("\\|", 3);
         
-        if (parts.length < 3) {
+        if (parts.length < 2) {
             String error = "ERROR|400|Invalid task format. Use: TASK|SERVICE|DATA";
             out.write(error);
             out.newLine();
@@ -95,47 +95,93 @@ public class ClientHandler implements Runnable {
         }
         
         String serviceName = parts[1].toUpperCase();
-        String taskData = parts[2];
+        String taskData = parts.length > 2 ? parts[2] : "";
         
-        // FIXED: For CSV service, read multi-line data
-        if (serviceName.equals("CSV")) {
-            StringBuilder csvBuilder = new StringBuilder();
-            
-            // If there's data on the first line, add it
-            if (!taskData.trim().isEmpty()) {
-                csvBuilder.append(taskData).append("\n");
+        //Handle Chunked CSV Transfer
+        if (serviceName.equals("CSV") && taskData.equals("CHUNKED")) {
+            System.out.println("[Client] Receiving chunked CSV - streaming directly to service node...");
+
+            NodeInfo snInfo = heartbeatReceiver.getNodeInfoByService("CSV");
+            if (snInfo == null) {
+                out.write("ERROR|404|CSV service not available");
+                out.newLine();
+                out.flush();
+                // Still need to drain chunks from client
+                String line;
+                while ((line = in.readLine()) != null && !line.equals("END_CHUNKS")) {
+                    out.write("ACK");
+                    out.newLine();
+                    out.flush();
+                }
+                return;
             }
-            
-            // Read additional lines until empty line
-            String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                csvBuilder.append(line).append("\n");
+
+            // Connect to service node
+            try (Socket snSocket = new Socket(snInfo.ip, snInfo.port);
+                BufferedWriter snOut = new BufferedWriter(
+                    new OutputStreamWriter(snSocket.getOutputStream()));
+                BufferedReader snIn = new BufferedReader(
+                    new InputStreamReader(snSocket.getInputStream()))) {
+                
+                snSocket.setSoTimeout(300000); // 5 minutes
+                
+                // Signal ready to client
+                out.write("READY");
+                out.newLine();
+                out.flush();
+                // Stream chunks directly to service node
+                String line;
+                int chunkCount = 0;
+                while ((line = in.readLine()) != null) {
+                    if (line.equals("END_CHUNKS")) {
+                        break;
+                    } else if (line.startsWith("CHUNK|")) {
+                        // Forward chunk data directly to service node
+                        snOut.write(line.substring(6));
+                        snOut.newLine();
+                        snOut.flush();
+                        chunkCount++;
+
+                        // Acknowledge to client
+                        out.write("ACK");
+                        out.newLine();
+                        out.flush();
+                    }
+                }
+
+                // Signal end to service node
+                snOut.write("END_CSV");
+                snOut.newLine();
+                snOut.flush();
+
+                System.out.println("[Client] Streamed " + chunkCount + " chunks to service node");
+
+                // Get result from service node
+                String result = snIn.readLine();
+                if (result == null) result = "ERROR|500|No result from service node";
+        
+                out.write(result);
+                out.newLine();
+                out.flush();
+                return;
             }
-            
-            taskData = csvBuilder.toString().trim();
-            System.out.println("[Client] Received CSV data (" + taskData.split("\n").length + " lines)");
         }
-        
+
         System.out.println("[Client] Task request for service: " + serviceName);
-        
-        // Find the service node using enhanced receiver
+    
         NodeInfo snInfo = heartbeatReceiver.getNodeInfoByService(serviceName);
-        
+
         if (snInfo == null) {
             String error = "ERROR|404|Service " + serviceName + " is not currently available";
             out.write(error);
             out.newLine();
             out.flush();
-            System.out.println("[Client] " + error);
             return;
         }
-        
+
         System.out.println("[Client] Forwarding to: " + snInfo);
-        
-        // Forward task to service node
         String result = forwardToServiceNode(snInfo, taskData);
-        
-        // Send result back to client
+
         out.write(result);
         out.newLine();
         out.flush();
@@ -157,8 +203,8 @@ public class ClientHandler implements Runnable {
             snOut.flush();
             System.out.println("[Forward] Task sent to service node");
             
-            // Set timeout for reading result (30 seconds)
-            snSocket.setSoTimeout(30000);
+            // Set timeout for reading result (2 minutes)
+            snSocket.setSoTimeout(120000);
             
             // Read result from service node
             String result = snIn.readLine();
