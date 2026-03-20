@@ -544,11 +544,11 @@ public class TCPClient {
                     outputPath = inputFileName + "_decompressed";
                 }
 
+                // Always decode from Base64 first since ServiceNode returns Base64
                 try {
-                    // Always decode from Base64 first since ServiceNode returns Base64
                     byte[] decodedBytes = Base64.getDecoder().decode(content.trim());
-                    // Detect extension if not already known from filename
-                    if (!outputPath.contains(".") || outputPath.endsWith("_decompressed")) {
+                    // If output path doesn't have extension yet, detect it
+                    if (!outputPath.contains(".")) {
                         String ext = detectFileExtension(decodedBytes);
                         outputPath = outputPath + ext;
                     }
