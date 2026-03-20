@@ -144,13 +144,13 @@ public class TCPClient {
         File imageFile = new File(imagePath);
         if (!imageFile.exists()) {
             System.err.println("ERROR: Image file not found!");
-            System.err.println("Expected location: " + imagePath);
+            System.err.println("Please check the file path and try again.");
             return "TASK|IMAGE|ERROR";
         }
         
         try {
             String base64Image = ImageHelper.imageFileToBase64(imagePath);
-            System.out.println("✓ Image loaded successfully (" + base64Image.length() + " chars)");
+            System.out.println("Image loaded successfully (" + base64Image.length() + " chars)");
             
             String taskData;
             switch (selectedOperation) {
@@ -178,7 +178,7 @@ public class TCPClient {
             }
             return "TASK|IMAGE|" + taskData;
         } catch (IOException e) {
-            System.err.println("Error loading image: " + e.getMessage());
+            System.err.println("Error loading image. Please try again.");
             return "TASK|IMAGE|ERROR";
         }
     }
@@ -204,7 +204,7 @@ public class TCPClient {
             ImageHelper.base64ToImageFile(parts[2], outputPath);
             System.out.println("Result saved to: " + outputPath);
         } catch (Exception e) {
-            System.err.println("Error handling result: " + e.getMessage());
+            System.err.println("Error saving result. Please try again.");
         }
     }
     
@@ -223,7 +223,7 @@ public class TCPClient {
         
             File file = new File(filePath);
             if (!file.exists()) {
-                System.err.println("ERROR: File not found: " + filePath);
+                System.err.println("ERROR: File not found.");
                 return "TASK|CSV|ERROR";
             }
         
@@ -251,7 +251,7 @@ public class TCPClient {
         
             String ready = in.readLine();
             if (!"READY".equals(ready)) {
-                System.err.println("Server not ready for chunks: " + ready);
+                System.err.println("Service not ready. Please try again.");
                 return;
             }
         
@@ -280,7 +280,7 @@ public class TCPClient {
                     
                         String ack = in.readLine();
                         if (!"ACK".equals(ack)) {
-                            System.err.println("Bad acknowledgment on chunk " + chunkCount + ": " + ack);
+                            System.err.println("Transfer failed. Please try again.");
                             return;
                         }
                     }
@@ -294,7 +294,7 @@ public class TCPClient {
                 chunkCount++;
                 String ack = in.readLine();
                 if (!"ACK".equals(ack)) {
-                    System.err.println("Bad acknowledgment on final chunk: " + ack);
+                    System.err.println("Transfer failed. Please try again.");
                     return;
                 }
             }
@@ -303,10 +303,10 @@ public class TCPClient {
             out.newLine();
             out.flush();
         
-            System.out.println("✓ Sent " + lineCount + " lines in " + chunkCount + " chunks");
+            System.out.println("Sent " + lineCount + " lines in " + chunkCount + " chunks");
         
         } catch (IOException e) {
-             System.err.println("Transfer failed. Please try again.");
+            System.err.println("Transfer failed. Please try again.");
         }
     }
  
@@ -323,7 +323,7 @@ public class TCPClient {
             Files.write(Paths.get(outputPath), content.getBytes());
             System.out.println("Results saved to: " + outputPath);
         } catch (IOException e) {
-            System.err.println("Error saving results: " + e.getMessage());
+            System.err.println("Error saving results.");
         }
     }
     
@@ -351,7 +351,7 @@ public class TCPClient {
                     text = new String(Files.readAllBytes(Paths.get(filePath))).replace("\n", "\\n").replace("\r", "");
                 }
             } catch (IOException e) {
-                System.err.println("Error reading file: " + e.getMessage());
+                System.err.println("Error reading file. Please try again.");
                 return "TASK|BASE64|ERROR";
             }
         } else {
@@ -374,12 +374,19 @@ public class TCPClient {
                     : inputFileName + "_encoded.txt";
                 Files.write(Paths.get(outputPath), content.getBytes());
                 System.out.println("Encoded result saved to: " + outputPath);
+                System.out.println(content.substring(0, Math.min(100, content.length())) + "...");
             } else {
                 try {
                     byte[] decodedBytes = Base64.getDecoder().decode(content.trim());
-                    String outputPath = inputFileName.equals("manual_input")
-                        ? "decoded_output.bin"
-                        : "decoded_" + inputFileName;
+                    String ext = detectFileExtension(decodedBytes);
+                    String outputPath;
+                    if (inputFileName.equals("manual_input")) {
+                        outputPath = "decoded_output" + ext;
+                    } else {
+                        String baseName = inputFileName.replace("_encoded.txt", "")
+                            .replace(".txt", "");
+                        outputPath = "decoded_" + baseName + ext;
+                    }
                     Files.write(Paths.get(outputPath), decodedBytes);
                     System.out.println("Decoded result saved to: " + outputPath);
                 } catch (IllegalArgumentException e) {
@@ -388,10 +395,38 @@ public class TCPClient {
                     System.out.println("Decoded result saved to: " + outputPath);
                 }
             }
-            System.out.println(content.substring(0, Math.min(100, content.length())) + "...");
         } catch (IOException e) {
-            System.err.println("Error saving result: " + e.getMessage());
+            System.err.println("Error saving result.");
         }
+    }
+
+    private static String detectFileExtension(byte[] bytes) {
+        if (bytes.length < 4) return ".bin";
+        // PNG
+        if (bytes[0] == (byte)0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+            return ".png";
+        }
+        // JPEG
+        if (bytes[0] == (byte)0xFF && bytes[1] == (byte)0xD8 && bytes[2] == (byte)0xFF) {
+            return ".jpg";
+        }
+        // GIF
+        if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) {
+            return ".gif";
+        }
+        // PDF
+        if (bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) {
+            return ".pdf";
+        }
+        // GZ
+        if (bytes[0] == 0x1F && bytes[1] == (byte)0x8B) {
+            return ".gz";
+        }
+        // ZIP
+        if (bytes[0] == 0x50 && bytes[1] == 0x4B) {
+            return ".zip";
+        }
+        return ".bin";
     }
     
     private static String handleHMACService(Scanner scanner) {
@@ -414,7 +449,7 @@ public class TCPClient {
                 byte[] fileBytes = Files.readAllBytes(Paths.get(filePath));
                 message = "BINARY:" + Base64.getEncoder().encodeToString(fileBytes);
             } catch (IOException e) {
-                System.err.println("Error reading file: " + e.getMessage());
+                System.err.println("Error reading file. Please try again.");
                 return "TASK|HMAC|ERROR";
             }
         } else {
@@ -446,7 +481,7 @@ public class TCPClient {
                 System.out.println("Signature saved to: hmac_signature.txt");
             }
         } catch (IOException e) {
-            System.err.println("Error saving result: " + e.getMessage());
+            System.err.println("Error saving result.");
         }
     }
     
@@ -474,7 +509,7 @@ public class TCPClient {
                     text = new String(Files.readAllBytes(Paths.get(filePath))).replace("\n", "\\n").replace("\r", "");
                 }
             } catch (IOException e) {
-                System.err.println("Error reading file: " + e.getMessage());
+                System.err.println("Error reading file. Please try again.");
                 return "TASK|COMPRESSION|ERROR";
             }
         } else {
@@ -503,17 +538,21 @@ public class TCPClient {
                 String outputPath;
                 if (inputFileName.equals("manual_input")) {
                     outputPath = "decompressed_output.txt";
+                } else if (inputFileName.endsWith(".gz")) {
+                    // Strip .gz to restore original filename
+                    outputPath = inputFileName.substring(0, inputFileName.length() - 3);
                 } else {
-                    outputPath = inputFileName.endsWith(".gz") 
-                        ? inputFileName.substring(0, inputFileName.length() - 3) 
-                        : inputFileName + "_decompressed.txt";
+                    // Detect file type from magic bytes
+                    byte[] contentBytes = content.getBytes();
+                    String ext = detectFileExtension(contentBytes);
+                    outputPath = inputFileName + "_decompressed" + ext;
                 }
                 content = content.replace("\\n", "\n");
                 Files.write(Paths.get(outputPath), content.getBytes());
                 System.out.println("Decompressed file saved to: " + outputPath);
             }
         } catch (IOException e) {
-            System.err.println("Error saving result: " + e.getMessage());
+            System.err.println("Error saving result.");
         }
     }
 }
