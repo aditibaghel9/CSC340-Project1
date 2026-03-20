@@ -1,17 +1,18 @@
 import java.net.*;
 import java.util.*;
 
+/**
+ * @author KFrancis05, help from claude.ai
+ */
 public class HeartbeatReceiver implements Runnable {
-
     private DatagramSocket socket;
     private volatile boolean running = true;
-    
-    // Changed from Map<String, Long> to Map<String, NodeInfo>
     private Map<String, NodeInfo> nodes = new HashMap<>();
 
     public HeartbeatReceiver() {
         try {
             socket = new DatagramSocket(9999);
+            socket.setSoTimeout(5000); // wake up every 5 seconds to check for dead nodes
         } catch (SocketException e) {
             e.printStackTrace();
         }
@@ -25,21 +26,21 @@ public class HeartbeatReceiver implements Runnable {
         while (running) {
             try {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                socket.receive(packet);
-
-                String message = new String(packet.getData(), 0, packet.getLength());
-                String[] parts = message.split("\\|");
-
-                if (parts.length == 4 && parts[0].equals("HEARTBEAT")) {
-                    String nodeName = parts[1];
-                    String serviceName = parts[2];
-                    int tcpPort = Integer.parseInt(parts[3]);
-                    String nodeIP = packet.getAddress().getHostAddress();
-
-                    // Store full NodeInfo instead of just timestamp
-                    NodeInfo info = new NodeInfo(nodeName, serviceName, nodeIP, tcpPort);
-                    nodes.put(nodeName, info);
-                    System.out.println("Heartbeat received: " + info);
+                try {
+                    socket.receive(packet);
+                    String message = new String(packet.getData(), 0, packet.getLength());
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 4 && parts[0].equals("HEARTBEAT")) {
+                        String nodeName = parts[1];
+                        String serviceName = parts[2];
+                        int tcpPort = Integer.parseInt(parts[3]);
+                        String nodeIP = packet.getAddress().getHostAddress();
+                        NodeInfo info = new NodeInfo(nodeName, serviceName, nodeIP, tcpPort);
+                        nodes.put(nodeName, info);
+                        System.out.println("Heartbeat received: " + info);
+                    }
+                } catch (java.net.SocketTimeoutException e) {
+                    // No packet received, just continue to dead node check
                 }
 
                 // Check for dead nodes every 30 seconds
@@ -70,7 +71,6 @@ public class HeartbeatReceiver implements Runnable {
         }
     }
 
-    // Returns list of alive service names for LIST command
     public List<String> getAliveServices() {
         List<String> services = new ArrayList<>();
         for (NodeInfo info : nodes.values()) {
@@ -79,7 +79,6 @@ public class HeartbeatReceiver implements Runnable {
         return services;
     }
 
-    // Returns NodeInfo for a specific service for TASK routing
     public NodeInfo getNodeInfoByService(String serviceName) {
         for (NodeInfo info : nodes.values()) {
             if (info.serviceName.equalsIgnoreCase(serviceName)) {
