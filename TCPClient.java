@@ -503,10 +503,13 @@ public class TCPClient {
             inputFileName = Paths.get(filePath).getFileName().toString();
             try {
                 if (selectedOperation.equals("DECOMPRESS")) {
+                    // Read .gz file as raw bytes and Base64 encode for transport
                     byte[] fileBytes = Files.readAllBytes(Paths.get(filePath));
                     text = Base64.getEncoder().encodeToString(fileBytes);
                 } else {
-                    text = new String(Files.readAllBytes(Paths.get(filePath))).replace("\n", "\\n").replace("\r", "");
+                    // Use BINARY prefix for any file input
+                    byte[] fileBytes = Files.readAllBytes(Paths.get(filePath));
+                    text = "BINARY:" + Base64.getEncoder().encodeToString(fileBytes);
                 }
             } catch (IOException e) {
                 System.err.println("Error reading file. Please try again.");
@@ -547,14 +550,12 @@ public class TCPClient {
                 // Always decode from Base64 first since ServiceNode returns Base64
                 try {
                     byte[] decodedBytes = Base64.getDecoder().decode(content.trim());
-                    // If output path doesn't have extension yet, detect it
                     if (!outputPath.contains(".")) {
                         String ext = detectFileExtension(decodedBytes);
                         outputPath = outputPath + ext;
                     }
                     Files.write(Paths.get(outputPath), decodedBytes);
                 } catch (IllegalArgumentException e) {
-                    // Not Base64, save as plain text
                     content = content.replace("\\n", "\n");
                     if (!outputPath.contains(".")) {
                         outputPath = outputPath + ".txt";

@@ -130,7 +130,6 @@ public class ServiceNode {
 
             if (operation.equalsIgnoreCase("ENCODE")) {
                 if (data.startsWith("BINARY:")) {
-                    // Already Base64 encoded for transport, just strip prefix and return
                     String encoded = data.substring(7);
                     return "SUCCESS|" + encoded;
                 } else {
@@ -140,7 +139,6 @@ public class ServiceNode {
             } else if (operation.equalsIgnoreCase("DECODE")) {
                 data = data.replace("\\n", "\n");
                 byte[] decoded = java.util.Base64.getDecoder().decode(data.trim());
-                // Return as Base64 so binary data survives transport
                 return "SUCCESS|" + java.util.Base64.getEncoder().encodeToString(decoded);
             } else {
                 return "ERROR|Unknown BASE64 operation: " + operation;
@@ -217,7 +215,15 @@ public class ServiceNode {
             }
 
             if (operation.equalsIgnoreCase("COMPRESS")) {
-                byte[] bytes = input.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                byte[] bytes;
+                if (input.startsWith("BINARY:")) {
+                    // Binary file sent as Base64
+                    bytes = java.util.Base64.getDecoder().decode(input.substring(7));
+                } else {
+                    // Plain text
+                    input = input.replace("\\n", "\n");
+                    bytes = input.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                }
                 java.io.ByteArrayOutputStream byteStream = new java.io.ByteArrayOutputStream();
                 java.util.zip.GZIPOutputStream gzip = new java.util.zip.GZIPOutputStream(byteStream);
                 gzip.write(bytes);
