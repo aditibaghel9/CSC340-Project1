@@ -140,6 +140,7 @@ public class ServiceNode {
             } else if (operation.equalsIgnoreCase("DECODE")) {
                 data = data.replace("\\n", "\n");
                 byte[] decoded = java.util.Base64.getDecoder().decode(data.trim());
+                // Return as Base64 so binary data survives transport
                 return "SUCCESS|" + java.util.Base64.getEncoder().encodeToString(decoded);
             } else {
                 return "ERROR|Unknown BASE64 operation: " + operation;
@@ -161,7 +162,6 @@ public class ServiceNode {
             String message = parts[1];
             String secretKey = parts[2];
 
-            // Handle binary files sent as Base64
             byte[] messageBytes;
             if (message.startsWith("BINARY:")) {
                 messageBytes = java.util.Base64.getDecoder().decode(message.substring(7));
@@ -239,8 +239,10 @@ public class ServiceNode {
                     outputStream.write(buffer, 0, bytesRead);
                 }
                 gzip.close();
+                // Return as Base64 so binary data survives transport
+                String result = java.util.Base64.getEncoder().encodeToString(outputStream.toByteArray());
                 System.out.println(">>> Decompression complete");
-                return "SUCCESS|" + outputStream.toString();
+                return "SUCCESS|" + result;
 
             } else {
                 return "ERROR|Unknown COMPRESSION operation: " + operation;

@@ -539,16 +539,28 @@ public class TCPClient {
                 if (inputFileName.equals("manual_input")) {
                     outputPath = "decompressed_output.txt";
                 } else if (inputFileName.endsWith(".gz")) {
-                    // Strip .gz to restore original filename
                     outputPath = inputFileName.substring(0, inputFileName.length() - 3);
                 } else {
-                    // Detect file type from magic bytes
-                    byte[] contentBytes = content.getBytes();
-                    String ext = detectFileExtension(contentBytes);
-                    outputPath = inputFileName + "_decompressed" + ext;
+                    outputPath = inputFileName + "_decompressed";
                 }
-                content = content.replace("\\n", "\n");
-                Files.write(Paths.get(outputPath), content.getBytes());
+
+                try {
+                    // Always decode from Base64 first since ServiceNode returns Base64
+                    byte[] decodedBytes = Base64.getDecoder().decode(content.trim());
+                    // Detect extension if not already known from filename
+                    if (!outputPath.contains(".") || outputPath.endsWith("_decompressed")) {
+                        String ext = detectFileExtension(decodedBytes);
+                        outputPath = outputPath + ext;
+                    }
+                    Files.write(Paths.get(outputPath), decodedBytes);
+                } catch (IllegalArgumentException e) {
+                    // Not Base64, save as plain text
+                    content = content.replace("\\n", "\n");
+                    if (!outputPath.contains(".")) {
+                        outputPath = outputPath + ".txt";
+                    }
+                    Files.write(Paths.get(outputPath), content.getBytes());
+                }
                 System.out.println("Decompressed file saved to: " + outputPath);
             }
         } catch (IOException e) {
